@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "./proto";
+
+service Resolver {
+  rpc Resolve(stream ResolveResult) returns (stream ResolveQuery);
+}
+
+message ResolveQuery {
+  uint64 no = 1;
+  string type = 2;
+  string zone = 3;
+  string subdomain = 4;
+}
+
+message ResolveResult {
+  uint64 no = 1;
+  string rcode = 2;
+  uint32 ttl = 3;
+  repeated RR rrs = 4;
+}
+
+message RR {
+  string name  = 1;
+  string type  = 2;
+  string value = 3;
+}
