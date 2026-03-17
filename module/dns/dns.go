@@ -51,7 +51,7 @@ func New(server *dns.Server, redis *redis.Client) *Module {
 			return
 		}
 
-		if result.Ttl == 0 {
+		if result.Ttl < 60 {
 			result.Ttl = uint32(60)
 		}
 

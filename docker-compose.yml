@@ -6,6 +6,7 @@ services:
       - "6379:6379"
     volumes:
       - nameral-dragonfly-data:/data
+    command: --dbfilename= --cache_mode --maxmemory 512M
     ulimits:
       memlock: -1
     cpus: 2.0
