@@ -1,9 +1,15 @@
 package payload
 
-type RecordSetBody struct {
+type RecordAddBody struct {
 	Name  *string `json:"name"`
 	Type  *string `json:"type"`
-	Value *string `json:"records"`
+	Value *string `json:"value"`
+}
+
+type RecordSetBody struct {
+	No    *uint64 `json:"no"`
+	Type  *string `json:"type"`
+	Value *string `json:"value"`
 }
 
 type RecordDeleteBody struct {

@@ -2,7 +2,6 @@ package recordEndpoint
 
 import (
 	"github.com/gofiber/fiber/v3"
-	"github.com/miekg/dns"
 	"go.scnd.dev/open/nameral/type/payload"
 	"go.scnd.dev/open/polygon/compat/response"
 )
@@ -13,7 +12,7 @@ func (r *Handler) HandleAdd(c fiber.Ctx) error {
 	defer s.End()
 
 	// * parse body
-	body := new(payload.RecordSetBody)
+	body := new(payload.RecordAddBody)
 	if err := c.Bind().JSON(body); err != nil {
 		return fiber.ErrBadRequest
 	}
@@ -21,26 +20,16 @@ func (r *Handler) HandleAdd(c fiber.Ctx) error {
 		return fiber.ErrBadRequest
 	}
 
-	fqdn := dns.Fqdn(*body.Name)
 	typ := *body.Type
 	val := *body.Value
-
-	r.Store.Mu.Lock()
-
-	no := r.Store.NextNo
-	r.Store.NextNo++
 	name := *body.Name
-	r.Store.Records[fqdn] = append(r.Store.Records[fqdn], &payload.Record{
-		No:     &no,
-		Name:   &name,
-		Type:   &typ,
-		Values: []*string{&val},
-	})
 
-	r.Store.Mu.Unlock()
-
-	r.Store.Save()
+	// * add record and get line number
+	no, err := r.Store.AddRecord(name, typ, []string{val})
+	if err != nil {
+		return s.Error("failed to add record", err)
+	}
 
 	// * response
-	return c.JSON(response.Success(s, true))
+	return c.JSON(response.Success(s, no))
 }

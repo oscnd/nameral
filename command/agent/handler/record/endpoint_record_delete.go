@@ -16,20 +16,14 @@ func (r *Handler) HandleDelete(c fiber.Ctx) error {
 	if err := c.Bind().JSON(body); err != nil {
 		return s.Error("unable to parse body", err)
 	}
-
-	r.Store.Mu.Lock()
-	for fqdn, records := range r.Store.Records {
-		filtered := records[:0]
-		for _, rec := range records {
-			if *rec.No != *body.No {
-				filtered = append(filtered, rec)
-			}
-		}
-		r.Store.Records[fqdn] = filtered
+	if body.No == nil {
+		return fiber.ErrBadRequest
 	}
-	r.Store.Mu.Unlock()
 
-	r.Store.Save()
+	// * delete record line and reorder
+	if err := r.Store.DeleteRecordByNo(*body.No); err != nil {
+		return s.Error("failed to delete record", err)
+	}
 
 	// * response
 	return c.JSON(response.Success(s, true))

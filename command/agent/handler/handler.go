@@ -26,5 +26,6 @@ func Bind(config Config, app *fiber.App, handler *recordEndpoint.Handler) {
 	record := api.Group("/record")
 	record.Post("/list", handler.HandleList)
 	record.Post("/add", handler.HandleAdd)
+	record.Post("/set", handler.HandleSet)
 	record.Post("/delete", handler.HandleDelete)
 }
