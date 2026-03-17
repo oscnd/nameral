@@ -52,9 +52,13 @@ func invoke(lc fx.Lifecycle, config *Config) error {
 		z := *zone
 		namera.Handle(z, func(q *model.HandleQuery) (*model.HandleResponse, error) {
 			// Build the full DNS name
-			name := *q.Zone
-			if q.Subdomain != nil && *q.Subdomain != "" {
+			var name string
+			if *q.Zone == "." {
+				name = *q.Subdomain
+			} else if q.Subdomain != nil && *q.Subdomain != "" {
 				name = *q.Subdomain + "." + *q.Zone
+			} else {
+				name = *q.Zone
 			}
 
 			qtype, ok := dns.StringToType[*q.Type]

@@ -81,3 +81,7 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260316180232-0b37fe3546d5 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace go.scnd.dev/open/polygon => /Volumes/Data/Repo/polygon/polygon
+
+replace go.scnd.dev/open/polygon/external => /Volumes/Data/Repo/polygon/external
