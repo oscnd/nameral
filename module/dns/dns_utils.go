@@ -7,9 +7,17 @@ import (
 	"go.scnd.dev/open/nameral/generate/proto"
 )
 
-func writeResponse(w dns.ResponseWriter, r *dns.Msg, result *proto.ResolveResult) {
+func newMessage(r *dns.Msg) *dns.Msg {
 	m := new(dns.Msg)
 	m.SetReply(r)
+	if opt := r.IsEdns0(); opt != nil {
+		m.SetEdns0(opt.UDPSize(), false)
+	}
+	return m
+}
+
+func buildResponse(r *dns.Msg, result *proto.ResolveResult) *dns.Msg {
+	m := newMessage(r)
 	m.Authoritative = true
 
 	switch result.Rcode {
@@ -28,12 +36,11 @@ func writeResponse(w dns.ResponseWriter, r *dns.Msg, result *proto.ResolveResult
 		m.Rcode = dns.RcodeServerFailure
 	}
 
-	w.WriteMsg(m)
+	return m
 }
 
 func replyCode(w dns.ResponseWriter, r *dns.Msg, code int) {
-	m := new(dns.Msg)
-	m.SetReply(r)
+	m := newMessage(r)
 	m.Rcode = code
 	w.WriteMsg(m)
 }

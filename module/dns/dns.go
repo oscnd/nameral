@@ -4,28 +4,57 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/bsthun/gut"
 	"github.com/miekg/dns"
 	"github.com/redis/go-redis/v9"
+	"go.scnd.dev/open/nameral/common/config"
 	"go.scnd.dev/open/nameral/generate/proto"
+	"go.scnd.dev/open/polygon"
+	"go.uber.org/fx"
 )
 
-type Module struct {
-	mu       sync.RWMutex
-	no       atomic.Uint64
-	pending  sync.Map                   // uint64 → chan *proto.ResolveResult
-	registry map[string][]*ClientStream // zone → ordered list of clients
-}
-
-func New(server *dns.Server, redis *redis.Client) *Module {
+func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, server *dns.Server, redis *redis.Client) *Module {
 	m := &Module{
-		registry: make(map[string][]*ClientStream),
+		layer:    polygon.Layer("dns", "module"),
+		mutex:    new(sync.RWMutex),
+		no:       new(atomic.Uint64),
+		pending:  new(sync.Map),
+		stopCh:   make(chan struct{}),
+		registry: make(map[string]*Zone),
 	}
+
+	// * span
+	s, _ := m.layer.With(context.TODO())
+	defer s.End()
+
+	if cfg.DnssecPath != nil && len(cfg.DnssecZones) > 0 {
+		for _, zone := range cfg.DnssecZones {
+			zk, err := loadZoneKey(*cfg.DnssecPath, *zone)
+			if err != nil {
+				gut.Fatal(fmt.Sprintf("dnssec loading failed for zone %s", *zone), err)
+			}
+			m.registry[*zone] = &Zone{dnssecZoneKey: zk}
+			fmt.Printf("[dnssec] %s\n", zk.Ds())
+		}
+	}
+
+	lifecycle.Append(fx.Hook{
+		OnStart: func(context.Context) error {
+			return nil
+		},
+		OnStop: func(context.Context) error {
+			close(m.stopCh)
+			m.mutex.Lock()
+			m.registry = make(map[string]*Zone)
+			m.mutex.Unlock()
+			return nil
+		},
+	})
 	dns.HandleFunc(".", func(w dns.ResponseWriter, r *dns.Msg) {
 		if len(r.Question) == 0 {
 			replyCode(w, r, dns.RcodeServerFailure)
@@ -37,12 +66,31 @@ func New(server *dns.Server, redis *redis.Client) *Module {
 		qtype := dns.TypeToString[q.Qtype]
 		ctx := context.Background()
 
+		do := r.IsEdns0() != nil && r.IsEdns0().Do()
+		zk := m.dnssecMatchZone(name)
+
+		// Handle DNSKEY queries locally for DNSSEC zones
+		if q.Qtype == dns.TypeDNSKEY && zk != nil {
+			msg := newMessage(r)
+			msg.Authoritative = true
+			msg.Answer = append(msg.Answer, dns.Copy(zk.dnsKey))
+			if do {
+				m.dnssecSign(msg, msg.Answer[:1], zk)
+			}
+			_ = w.WriteMsg(msg)
+			return
+		}
+
 		// Redis cache check
 		key := fmt.Sprintf("dns:%s:%s", name, qtype)
 		if cached, err := redis.Get(ctx, key).Result(); err == nil {
 			var result proto.ResolveResult
 			if json.Unmarshal([]byte(cached), &result) == nil {
-				writeResponse(w, r, &result)
+				msg := buildResponse(r, &result)
+				if do && zk != nil && len(msg.Answer) > 0 {
+					m.dnssecSign(msg, msg.Answer, zk)
+				}
+				w.WriteMsg(msg)
 				return
 			}
 		}
@@ -65,100 +113,11 @@ func New(server *dns.Server, redis *redis.Client) *Module {
 			}
 		}
 
-		writeResponse(w, r, result)
+		msg := buildResponse(r, result)
+		if do && zk != nil && len(msg.Answer) > 0 {
+			m.dnssecSign(msg, msg.Answer, zk)
+		}
+		_ = w.WriteMsg(msg)
 	})
 	return m
-}
-
-func (r *Module) Register(cs *ClientStream, zones []string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for _, zone := range zones {
-		r.registry[zone] = append(r.registry[zone], cs)
-	}
-}
-
-func (r *Module) Unregister(cs *ClientStream, zones []string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for _, zone := range zones {
-		list := r.registry[zone]
-		for i, c := range list {
-			if c == cs {
-				r.registry[zone] = append(list[:i], list[i+1:]...)
-				break
-			}
-		}
-	}
-}
-
-func (r *Module) Query(ctx context.Context, name string, qtype string) (*proto.ResolveResult, error) {
-	// Collect matching zones
-	r.mu.RLock()
-	var matchingZones []string
-	for zone := range r.registry {
-		if zone == "." || name == zone || strings.HasSuffix(name, "."+zone) {
-			matchingZones = append(matchingZones, zone)
-		}
-	}
-	r.mu.RUnlock()
-
-	if len(matchingZones) == 0 {
-		return &proto.ResolveResult{Rcode: "SERVFAIL"}, nil
-	}
-
-	// Sort by zone length descending (most specific first)
-	sort.Slice(matchingZones, func(i, j int) bool {
-		return len(matchingZones[i]) > len(matchingZones[j])
-	})
-
-	for _, zone := range matchingZones {
-		r.mu.RLock()
-		clients := make([]*ClientStream, len(r.registry[zone]))
-		copy(clients, r.registry[zone])
-		r.mu.RUnlock()
-
-		for _, client := range clients {
-			subdomain := name
-			if zone != "." {
-				if name == zone {
-					subdomain = ""
-				} else {
-					subdomain = strings.TrimSuffix(name, "."+zone)
-				}
-			}
-
-			no := r.no.Add(1)
-			ch := make(chan *proto.ResolveResult, 1)
-			r.pending.Store(no, ch)
-			defer r.pending.Delete(no)
-
-			query := &proto.ResolveQuery{
-				No:        no,
-				Type:      qtype,
-				Zone:      zone,
-				Subdomain: subdomain,
-			}
-
-			client.Mutex.Lock()
-			err := client.Stream.Send(query)
-			client.Mutex.Unlock()
-			if err != nil {
-				continue
-			}
-
-			select {
-			case r := <-ch:
-				if r.Rcode == "NOERROR" {
-					return r, nil
-				}
-			case <-ctx.Done():
-				return nil, fmt.Errorf("context cancelled")
-			}
-		}
-	}
-
-	return &proto.ResolveResult{
-		Rcode: "NXDOMAIN",
-	}, nil
 }

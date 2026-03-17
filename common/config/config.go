@@ -16,6 +16,8 @@ type Config struct {
 	RedisDatabase         *int      `yaml:"redisDatabase" validate:"omitempty"`
 	ServerCertificateFile *string   `yaml:"serverCertificateFile" validate:"required"`
 	ServerPrivateKeyFile  *string   `yaml:"serverPrivateKeyFile" validate:"required"`
+	DnssecPath            *string   `yaml:"dnssecPath" validate:"omitempty"`
+	DnssecZones           []*string `yaml:"dnssecZones" validate:"omitempty"`
 	Clients               []*Client `yaml:"clients" validate:"required,dive"`
 }
 
