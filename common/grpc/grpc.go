@@ -2,20 +2,31 @@ package grpc
 
 import (
 	"context"
+	"crypto/tls"
 	"net"
 
 	"github.com/bsthun/gut"
 	"go.scnd.dev/open/nameral/common/config"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 func Init(lc fx.Lifecycle, config *config.Config) *grpc.Server {
 	// * Initialize interceptor
 	interceptor := NewInterceptor(config)
 
+	// * Initialize TLS with GetCertificate for hot-reload on cert rotation
+	tlsConfig := &tls.Config{
+		GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+			cert, err := tls.LoadX509KeyPair(*config.ServerCertificateFile, *config.ServerPrivateKeyFile)
+			return &cert, err
+		},
+	}
+
 	// * Initialize gRPC server
 	grpcServer := grpc.NewServer(
+		grpc.Creds(credentials.NewTLS(tlsConfig)),
 		grpc.UnaryInterceptor(interceptor.AuthorizationUnaryInterceptor),
 		grpc.StreamInterceptor(interceptor.AuthorizationStreamInterceptor),
 	)

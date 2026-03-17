@@ -14,6 +14,8 @@ type Config struct {
 	RedisAddress          *string   `yaml:"redisAddress" validate:"required"`
 	RedisPassword         *string   `yaml:"redisPassword" validate:"omitempty"`
 	RedisDatabase         *int      `yaml:"redisDatabase" validate:"omitempty"`
+	ServerCertificateFile *string   `yaml:"serverCertificateFile" validate:"required"`
+	ServerPrivateKeyFile  *string   `yaml:"serverPrivateKeyFile" validate:"required"`
 	Clients               []*Client `yaml:"clients" validate:"required,dive"`
 }
 

@@ -6,11 +6,18 @@ import (
 
 	"go.scnd.dev/open/nameral"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 func New(config *Config) (nameral.Nameral, error) {
-	conn, err := grpc.NewClient(*config.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	var creds credentials.TransportCredentials
+	if config.Tls != nil {
+		creds = credentials.NewTLS(config.Tls)
+	} else {
+		creds = insecure.NewCredentials()
+	}
+	conn, err := grpc.NewClient(*config.Address, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		return nil, err
 	}

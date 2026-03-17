@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"os"
 	"strings"
 
 	"github.com/miekg/dns"
@@ -23,9 +26,21 @@ func main() {
 }
 
 func invoke(lc fx.Lifecycle, config *Config) error {
+	var tlsConfig *tls.Config
+	if config.CertificateFile != nil {
+		pem, err := os.ReadFile(*config.CertificateFile)
+		if err != nil {
+			return err
+		}
+		pool := x509.NewCertPool()
+		pool.AppendCertsFromPEM(pem)
+		tlsConfig = &tls.Config{RootCAs: pool}
+	}
+
 	namera, err := client.New(&client.Config{
 		Address: config.Address,
 		Secret:  config.Secret,
+		Tls:     tlsConfig,
 	})
 	if err != nil {
 		return err
