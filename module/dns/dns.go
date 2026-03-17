@@ -19,7 +19,7 @@ type Module struct {
 	registry map[string][]*ClientStream // zone → ordered list of clients
 }
 
-func New(server *dns.Server, rdb *redis.Client) *Module {
+func New(server *dns.Server, redis *redis.Client) *Module {
 	m := &Module{
 		registry: make(map[string][]*ClientStream),
 	}
@@ -36,7 +36,7 @@ func New(server *dns.Server, rdb *redis.Client) *Module {
 
 		// Redis cache check
 		key := fmt.Sprintf("dns:%s:%s", name, qtype)
-		if cached, err := rdb.Get(ctx, key).Result(); err == nil {
+		if cached, err := redis.Get(ctx, key).Result(); err == nil {
 			var result proto.ResolveResult
 			if json.Unmarshal([]byte(cached), &result) == nil {
 				writeResponse(w, r, &result)
@@ -51,10 +51,14 @@ func New(server *dns.Server, rdb *redis.Client) *Module {
 			return
 		}
 
+		if result.Ttl == 0 {
+			result.Ttl = uint32(60)
+		}
+
 		// Cache NOERROR with TTL > 0
 		if result.Rcode == "NOERROR" && result.Ttl > 0 {
 			if data, err := json.Marshal(result); err == nil {
-				rdb.Set(ctx, key, data, time.Duration(result.Ttl)*time.Second)
+				redis.Set(ctx, key, data, time.Duration(result.Ttl)*time.Second)
 			}
 		}
 
@@ -151,5 +155,7 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*proto.R
 		}
 	}
 
-	return &proto.ResolveResult{Rcode: "NXDOMAIN"}, nil
+	return &proto.ResolveResult{
+		Rcode: "NXDOMAIN",
+	}, nil
 }

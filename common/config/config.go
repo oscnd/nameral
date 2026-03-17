@@ -35,7 +35,7 @@ func (r *Config) GetRedisPassword() *string {
 	return r.RedisPassword
 }
 
-func (r *Config) GetRedisDb() *int {
+func (r *Config) GetRedisDatabase() *int {
 	return r.RedisDatabase
 }
 

@@ -4,6 +4,7 @@ go 1.25.3
 
 require (
 	github.com/bsthun/gut v1.2.8
+	github.com/davecgh/go-spew v1.1.1
 	github.com/gofiber/fiber/v3 v3.0.0-rc.3
 	github.com/miekg/dns v1.1.72
 	github.com/redis/go-redis/v9 v9.18.0

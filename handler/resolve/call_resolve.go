@@ -31,15 +31,20 @@ func (h *Handler) Resolve(server grpc.BidiStreamingServer[proto.ResolveResult, p
 	}
 	requestedZones := strings.Split(zonesRaw[0], ",")
 
-	// Intersect with allowed zones
+	// Intersect with allowed zones; "." means allow all zones
 	allowedSet := make(map[string]bool)
+	allowAll := false
 	for _, z := range clientConfig.AllowedZones {
-		allowedSet[*z] = true
+		if *z == "." {
+			allowAll = true
+		} else {
+			allowedSet[*z] = true
+		}
 	}
 	var finalZones []string
 	for _, z := range requestedZones {
 		z = strings.TrimSpace(z)
-		if allowedSet[z] {
+		if allowAll || allowedSet[z] {
 			finalZones = append(finalZones, z)
 		}
 	}
