@@ -10,6 +10,13 @@ type Config struct {
 	DnsListen             *string   `yaml:"dnsListen" validate:"required"`
 	TelemetryUrl          *string   `yaml:"telemetryUrl" validate:"required"`
 	TelemetryOrganization *string   `yaml:"telemetryOrganization" validate:"omitempty"`
+	Clients               []*Client `yaml:"clients" validate:"required,dive"`
+}
+
+type Client struct {
+	Name         *string   `yaml:"name" validate:"required"`
+	Token        *string   `yaml:"token" validate:"required"`
+	AllowedZones []*string `yaml:"allowedZones" validate:"required,dive"`
 }
 
 func (r *Config) GetProtoListen() []*string {

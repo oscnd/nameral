@@ -1,4 +1,4 @@
-package resolveEndpoint
+package resolveHandler
 
 import (
 	"go.scnd.dev/open/nameral/generate/proto"

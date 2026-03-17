@@ -4,6 +4,7 @@ import (
 	"embed"
 
 	"go.scnd.dev/open/nameral/common/config"
+	"go.scnd.dev/open/nameral/handler"
 	"go.scnd.dev/open/polygon/compat/common"
 	"go.scnd.dev/open/polygon/compat/predefine"
 	"go.uber.org/fx"
@@ -32,8 +33,11 @@ func main() {
 			),
 			common.Config[config.Config],
 			common.Fiber,
+			common.Redis,
 			common.Polygon,
 		),
-		fx.Invoke(),
+		fx.Invoke(
+			handler.Bind,
+		),
 	).Run()
 }
