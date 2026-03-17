@@ -1,7 +1,7 @@
 package recordEndpoint
 
 import (
-	"go.scnd.dev/open/nameral/command/agent/store"
+	"go.scnd.dev/open/nameral/module/store"
 	"go.scnd.dev/open/polygon"
 )
 

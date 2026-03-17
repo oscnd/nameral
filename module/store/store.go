@@ -102,7 +102,7 @@ func (r *Store) Save() {
 }
 
 func (r *Store) Tick() {
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
