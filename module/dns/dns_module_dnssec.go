@@ -57,7 +57,7 @@ func (r *Module) dnssecSign(msg *dns.Msg, rrset []dns.RR, zk *ZoneKey) {
 			Labels:      uint8(dns.CountLabel(group[0].Header().Name)),
 			OrigTtl:     group[0].Header().Ttl,
 			Expiration:  uint32(now.Add(24 * time.Hour).Unix()),
-			Inception:   uint32(now.Unix()),
+			Inception:   uint32(now.Add(-1 * time.Minute).Unix()),
 			KeyTag:      zk.dnsKey.KeyTag(),
 			SignerName:  zk.dnsKey.Hdr.Name,
 		}
