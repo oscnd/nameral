@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/miekg/dns"
@@ -16,6 +17,8 @@ import (
 
 type Module struct {
 	mu       sync.RWMutex
+	no       atomic.Uint64
+	pending  sync.Map                   // uint64 → chan *proto.ResolveResult
 	registry map[string][]*ClientStream // zone → ordered list of clients
 }
 
@@ -125,10 +128,10 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*proto.R
 				}
 			}
 
-			no := client.no.Add(1)
+			no := r.no.Add(1)
 			ch := make(chan *proto.ResolveResult, 1)
-			client.pending.Store(no, ch)
-			defer client.pending.Delete(no)
+			r.pending.Store(no, ch)
+			defer r.pending.Delete(no)
 
 			query := &proto.ResolveQuery{
 				No:        no,
@@ -137,9 +140,9 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*proto.R
 				Subdomain: subdomain,
 			}
 
-			client.mu.Lock()
+			client.Mutex.Lock()
 			err := client.Stream.Send(query)
-			client.mu.Unlock()
+			client.Mutex.Unlock()
 			if err != nil {
 				continue
 			}

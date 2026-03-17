@@ -55,6 +55,7 @@ func (r *Handler) Resolve(server grpc.BidiStreamingServer[proto.ResolveResult, p
 	// Build client stream and register
 	cs := &dns.ClientStream{
 		Name:   *clientConfig.Name,
+		Dns:    r.Dns,
 		Stream: server,
 	}
 	r.Dns.Register(cs, finalZones)
