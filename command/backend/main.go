@@ -1,30 +1,19 @@
 package main
 
 import (
-	"embed"
-
 	"go.scnd.dev/open/nameral/common/config"
+	"go.scnd.dev/open/nameral/common/dns"
+	"go.scnd.dev/open/nameral/common/grpc"
 	"go.scnd.dev/open/nameral/handler"
+	resolveHandler "go.scnd.dev/open/nameral/handler/resolve"
+	dnsModule "go.scnd.dev/open/nameral/module/dns"
 	"go.scnd.dev/open/polygon/compat/common"
-	"go.scnd.dev/open/polygon/compat/predefine"
 	"go.uber.org/fx"
 )
-
-//go:embed _database/migration/*.sql
-var migration embed.FS
-
-//go:embed .local/dist/*
-var frontend embed.FS
 
 func main() {
 	fx.New(
 		fx.Provide(
-			func() predefine.FrontendFS {
-				return frontend
-			},
-			func() predefine.MigrationFS {
-				return migration
-			},
 			fx.Annotate(
 				common.Config[config.Config],
 				fx.As(new(common.FiberConfig)),
@@ -35,6 +24,10 @@ func main() {
 			common.Fiber,
 			common.Redis,
 			common.Polygon,
+			grpc.Init,
+			dns.Init,
+			dnsModule.New,
+			resolveHandler.Handle,
 		),
 		fx.Invoke(
 			handler.Bind,

@@ -6,6 +6,7 @@ option go_package = "./proto";
 
 service Resolver {
   rpc Resolve(stream ResolveResult) returns (stream ResolveQuery);
+  rpc Flush(FlushRequest) returns (FlushResponse);
 }
 
 message ResolveQuery {
@@ -26,4 +27,12 @@ message RR {
   string name  = 1;
   string type  = 2;
   string value = 3;
+}
+
+message FlushRequest {
+  string zone = 1;
+}
+
+message FlushResponse {
+  bool ok = 1;
 }

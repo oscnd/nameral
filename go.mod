@@ -4,7 +4,9 @@ go 1.25.3
 
 require (
 	github.com/bsthun/gut v1.2.8
+	github.com/gofiber/fiber/v3 v3.0.0-rc.3
 	github.com/miekg/dns v1.1.72
+	github.com/redis/go-redis/v9 v9.18.0
 	go.scnd.dev/open/polygon v0.0.0-00010101000000-000000000000
 	go.uber.org/fx v1.24.0
 	google.golang.org/grpc v1.79.2
@@ -27,7 +29,6 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.29.0 // indirect
 	github.com/gofiber/fiber/v2 v2.52.9 // indirect
-	github.com/gofiber/fiber/v3 v3.0.0-rc.3 // indirect
 	github.com/gofiber/schema v1.6.0 // indirect
 	github.com/gofiber/utils/v2 v2.0.0-rc.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
@@ -48,7 +49,6 @@ require (
 	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/pressly/goose/v3 v3.26.0 // indirect
 	github.com/qdrant/go-client v1.16.2 // indirect
-	github.com/redis/go-redis/v9 v9.18.0 // indirect
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/sethvargo/go-retry v0.3.0 // indirect
 	github.com/tinylib/msgp v1.5.0 // indirect
