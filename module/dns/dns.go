@@ -115,7 +115,7 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*proto.R
 		copy(clients, r.registry[zone])
 		r.mu.RUnlock()
 
-		for _, cs := range clients {
+		for _, client := range clients {
 			subdomain := name
 			if zone != "." {
 				if name == zone {
@@ -125,10 +125,10 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*proto.R
 				}
 			}
 
-			no := cs.nextNo.Add(1)
+			no := client.no.Add(1)
 			ch := make(chan *proto.ResolveResult, 1)
-			cs.pending.Store(no, ch)
-			defer cs.pending.Delete(no)
+			client.pending.Store(no, ch)
+			defer client.pending.Delete(no)
 
 			query := &proto.ResolveQuery{
 				No:        no,
@@ -137,9 +137,9 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*proto.R
 				Subdomain: subdomain,
 			}
 
-			cs.mu.Lock()
-			err := cs.Stream.Send(query)
-			cs.mu.Unlock()
+			client.mu.Lock()
+			err := client.Stream.Send(query)
+			client.mu.Unlock()
 			if err != nil {
 				continue
 			}

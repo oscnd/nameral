@@ -12,7 +12,7 @@ type ClientStream struct {
 	Name    string
 	Stream  grpc.BidiStreamingServer[proto.ResolveResult, proto.ResolveQuery]
 	mu      sync.Mutex
-	nextNo  atomic.Uint64
+	no      atomic.Uint64
 	pending sync.Map // uint64 → chan *proto.ResolveResult
 }
 

@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (h *Handler) Flush(ctx context.Context, req *proto.FlushRequest) (*proto.FlushResponse, error) {
+func (r *Handler) Flush(ctx context.Context, req *proto.FlushRequest) (*proto.FlushResponse, error) {
 	// Get pre-authenticated client from context
 	clientConfig, ok := ctx.Value(commonGrpc.ClientContextKey).(*config.Client)
 	if !ok || clientConfig == nil {
@@ -40,12 +40,12 @@ func (h *Handler) Flush(ctx context.Context, req *proto.FlushRequest) (*proto.Fl
 
 	var cursor uint64
 	for {
-		keys, nextCursor, err := h.Redis.Scan(ctx, cursor, pattern, 100).Result()
+		keys, nextCursor, err := r.Redis.Scan(ctx, cursor, pattern, 100).Result()
 		if err != nil {
 			break
 		}
 		if len(keys) > 0 {
-			h.Redis.Del(ctx, keys...)
+			r.Redis.Del(ctx, keys...)
 		}
 		cursor = nextCursor
 		if cursor == 0 {

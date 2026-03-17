@@ -78,7 +78,6 @@ func (r *Namera) streamOnce(parentCtx context.Context) error {
 	})
 
 	if len(zones) == 0 {
-		// No zones registered yet; wait before retrying
 		select {
 		case <-streamCtx.Done():
 		case <-time.After(1 * time.Second):

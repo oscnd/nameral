@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (h *Handler) Resolve(server grpc.BidiStreamingServer[proto.ResolveResult, proto.ResolveQuery]) error {
+func (r *Handler) Resolve(server grpc.BidiStreamingServer[proto.ResolveResult, proto.ResolveQuery]) error {
 	// Get pre-authenticated client from context
 	clientConfig, ok := server.Context().Value(commonGrpc.ClientContextKey).(*config.Client)
 	if !ok || clientConfig == nil {
@@ -57,8 +57,8 @@ func (h *Handler) Resolve(server grpc.BidiStreamingServer[proto.ResolveResult, p
 		Name:   *clientConfig.Name,
 		Stream: server,
 	}
-	h.Dns.Register(cs, finalZones)
-	defer h.Dns.Unregister(cs, finalZones)
+	r.Dns.Register(cs, finalZones)
+	defer r.Dns.Unregister(cs, finalZones)
 
 	// Read loop: dispatch incoming results to pending waiters
 	for {
