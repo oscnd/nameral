@@ -5,6 +5,7 @@ import (
 
 	"github.com/miekg/dns"
 	"go.scnd.dev/open/nameral/generate/proto"
+	"go.scnd.dev/open/nameral/type/model"
 )
 
 func newMessage(r *dns.Msg) *dns.Msg {
@@ -20,8 +21,8 @@ func buildResponse(r *dns.Msg, result *proto.ResolveResult) *dns.Msg {
 	m := newMessage(r)
 	m.Authoritative = true
 
-	switch result.Rcode {
-	case "NOERROR":
+	switch model.Rcode(result.Rcode) {
+	case model.RcodeNOERROR:
 		m.Rcode = dns.RcodeSuccess
 		for _, rr := range result.Rrs {
 			rrStr := fmt.Sprintf("%s %d IN %s %s", dns.Fqdn(rr.Name), result.Ttl, rr.Type, rr.Value)
@@ -30,7 +31,7 @@ func buildResponse(r *dns.Msg, result *proto.ResolveResult) *dns.Msg {
 				m.Answer = append(m.Answer, parsed)
 			}
 		}
-	case "NXDOMAIN":
+	case (model.RcodeNXDOMAIN):
 		m.Rcode = dns.RcodeNameError
 	default:
 		m.Rcode = dns.RcodeServerFailure

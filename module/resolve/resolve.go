@@ -27,8 +27,7 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 
 	qtype, ok := dns.StringToType[*q.Type]
 	if !ok {
-		rcode := "SERVFAIL"
-		return &model.HandleResponse{Rcode: &rcode}, nil
+		return &model.HandleResponse{Rcode: &model.RcodeSERVFAIL}, nil
 	}
 
 	// Check record store first
@@ -39,12 +38,10 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 
 		if nameFound {
 			if len(matched) > 0 {
-				rcode := "NOERROR"
 				ttl := 30
-				return &model.HandleResponse{Rcode: &rcode, Ttl: &ttl, Records: matched}, nil
+				return &model.HandleResponse{Rcode: &model.RcodeNOERROR, Ttl: &ttl, Records: matched}, nil
 			}
-			rcode := "NXDOMAIN"
-			return &model.HandleResponse{Rcode: &rcode}, nil
+			return &model.HandleResponse{Rcode: &model.RcodeNOERROR}, nil
 		}
 	}
 
@@ -61,22 +58,18 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 
 		msg, _, err := r.DnsClient.Exchange(m, upstream)
 		if err != nil || msg == nil {
-			rcode := "SERVFAIL"
-			return &model.HandleResponse{Rcode: &rcode}, nil
+			return &model.HandleResponse{Rcode: &model.RcodeSERVFAIL}, nil
 		}
 
 		if msg.Rcode == dns.RcodeNameError {
-			rcode := "NXDOMAIN"
-			return &model.HandleResponse{Rcode: &rcode}, nil
+			return &model.HandleResponse{Rcode: &model.RcodeNXDOMAIN}, nil
 		}
 
 		if msg.Rcode != dns.RcodeSuccess || len(msg.Answer) == 0 {
-			rcode := "SERVFAIL"
-			return &model.HandleResponse{Rcode: &rcode}, nil
+			return &model.HandleResponse{Rcode: &model.RcodeSERVFAIL}, nil
 		}
 
-		rcode := "NOERROR"
-		resp := &model.HandleResponse{Rcode: &rcode}
+		resp := &model.HandleResponse{Rcode: &model.RcodeNOERROR}
 
 		for _, rr := range msg.Answer {
 			hdr := rr.Header()
@@ -102,6 +95,5 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 		return resp, nil
 	}
 
-	rcode := "NXDOMAIN"
-	return &model.HandleResponse{Rcode: &rcode}, nil
+	return &model.HandleResponse{Rcode: &model.RcodeNXDOMAIN}, nil
 }

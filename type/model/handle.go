@@ -1,5 +1,13 @@
 package model
 
+type Rcode string
+
+var (
+	RcodeNOERROR  Rcode = "NOERROR"
+	RcodeSERVFAIL Rcode = "SERVFAIL"
+	RcodeNXDOMAIN Rcode = "NXDOMAIN"
+)
+
 type HandleQuery struct {
 	Type      *string
 	Zone      *string
@@ -7,7 +15,7 @@ type HandleQuery struct {
 }
 
 type HandleResponse struct {
-	Rcode   *string
+	Rcode   *Rcode
 	Ttl     *int
 	Records []*Record
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.scnd.dev/open/nameral/common/config"
 	"go.scnd.dev/open/nameral/generate/proto"
+	"go.scnd.dev/open/nameral/type/model"
 	"go.scnd.dev/open/polygon"
 	"go.uber.org/fx"
 )
@@ -84,15 +85,17 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 		// Redis cache check
 		key := fmt.Sprintf("dns:%s:%s", name, qtype)
 		if cached, err := redis.Get(ctx, key).Result(); err == nil {
-			var result proto.ResolveResult
-			if json.Unmarshal([]byte(cached), &result) == nil {
-				msg := buildResponse(r, &result)
-				if do && zk != nil && len(msg.Answer) > 0 {
-					m.dnssecSign(msg, msg.Answer, zk)
-				}
-				w.WriteMsg(msg)
+			result := new(proto.ResolveResult)
+			if json.Unmarshal([]byte(cached), result) != nil {
+				replyCode(w, r, dns.RcodeServerFailure)
 				return
 			}
+			msg := buildResponse(r, result)
+			if do && zk != nil && len(msg.Answer) > 0 {
+				m.dnssecSign(msg, msg.Answer, zk)
+			}
+			w.WriteMsg(msg)
+			return
 		}
 
 		// Resolve via module registry
@@ -106,8 +109,7 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 			result.Ttl = uint32(60)
 		}
 
-		// Cache NOERROR with TTL > 0
-		if result.Rcode == "NOERROR" && result.Ttl > 0 {
+		if result.Rcode == string(model.RcodeNOERROR) && result.Ttl > 0 {
 			if data, err := json.Marshal(result); err == nil {
 				redis.Set(ctx, key, data, time.Duration(result.Ttl)*time.Second)
 			}

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"go.scnd.dev/open/nameral/generate/proto"
+	"go.scnd.dev/open/nameral/type/model"
 )
 
 func (r *Module) Query(ctx context.Context, name string, qtype string) (*proto.ResolveResult, error) {
@@ -21,7 +22,7 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*proto.R
 	r.mutex.RUnlock()
 
 	if len(matchingZones) == 0 {
-		return &proto.ResolveResult{Rcode: "SERVFAIL"}, nil
+		return &proto.ResolveResult{Rcode: string(model.RcodeSERVFAIL)}, nil
 	}
 
 	// Sort by zone length descending (most specific first)
@@ -66,11 +67,8 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*proto.R
 
 			select {
 			case res := <-ch:
-				if res.Rcode == "NOERROR" {
+				if res.Rcode == string(model.RcodeNOERROR) {
 					return res, nil
-				}
-				if res.Rcode == "NODATA" {
-					return &proto.ResolveResult{Rcode: "NOERROR"}, nil
 				}
 			case <-ctx.Done():
 				return nil, fmt.Errorf("context cancelled")
@@ -79,6 +77,6 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*proto.R
 	}
 
 	return &proto.ResolveResult{
-		Rcode: "NXDOMAIN",
+		Rcode: string(model.RcodeNXDOMAIN),
 	}, nil
 }

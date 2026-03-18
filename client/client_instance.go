@@ -118,7 +118,7 @@ func (r *Namera) dispatch(query *proto.ResolveQuery, stream grpc.BidiStreamingCl
 	if !ok {
 		_ = stream.Send(&proto.ResolveResult{
 			No:    query.No,
-			Rcode: "NXDOMAIN",
+			Rcode: string(model.RcodeNXDOMAIN),
 		})
 		return
 	}
@@ -133,14 +133,9 @@ func (r *Namera) dispatch(query *proto.ResolveQuery, stream grpc.BidiStreamingCl
 	if err != nil || resp == nil {
 		_ = stream.Send(&proto.ResolveResult{
 			No:    query.No,
-			Rcode: "SERVFAIL",
+			Rcode: string(model.RcodeSERVFAIL),
 		})
 		return
-	}
-
-	rcode := "NOERROR"
-	if resp.Rcode != nil {
-		rcode = *resp.Rcode
 	}
 
 	var rrs []*proto.RR
@@ -161,7 +156,7 @@ func (r *Namera) dispatch(query *proto.ResolveQuery, stream grpc.BidiStreamingCl
 
 	_ = stream.Send(&proto.ResolveResult{
 		No:    query.No,
-		Rcode: rcode,
+		Rcode: string(*resp.Rcode),
 		Ttl:   ttl,
 		Rrs:   rrs,
 	})
