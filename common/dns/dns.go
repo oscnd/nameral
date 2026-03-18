@@ -9,9 +9,9 @@ import (
 	"go.uber.org/fx"
 )
 
-func Init(lifecycle fx.Lifecycle, config *config.Config) (*dns.Server, *dns.Server) {
+func Init(lifecycle fx.Lifecycle, config *config.Config) *dns.Server {
 	// * initialize udp server
-	udpServer := &dns.Server{Addr: *config.DnsListen, Net: "udp"}
+	server := &dns.Server{Addr: *config.DnsListen, Net: "udp"}
 
 	// * initialize tcp server
 	tcpServer := &dns.Server{Addr: *config.DnsListen, Net: "tcp"}
@@ -20,11 +20,9 @@ func Init(lifecycle fx.Lifecycle, config *config.Config) (*dns.Server, *dns.Serv
 	lifecycle.Append(fx.Hook{
 		OnStart: func(context.Context) error {
 			go func() {
-				if err := udpServer.ListenAndServe(); err != nil {
+				if err := server.ListenAndServe(); err != nil {
 					gut.Fatal("failed to start UDP server", err)
 				}
-			}()
-			go func() {
 				if err := tcpServer.ListenAndServe(); err != nil {
 					gut.Fatal("failed to start TCP server", err)
 				}
@@ -32,11 +30,11 @@ func Init(lifecycle fx.Lifecycle, config *config.Config) (*dns.Server, *dns.Serv
 			return nil
 		},
 		OnStop: func(context.Context) error {
-			_ = udpServer.Shutdown()
+			_ = server.Shutdown()
 			_ = tcpServer.Shutdown()
 			return nil
 		},
 	})
 
-	return udpServer, tcpServer
+	return server
 }
