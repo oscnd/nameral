@@ -1,6 +1,6 @@
 # Nameral
 
-Name server with dynamic zone resolving
+Name server with remote zone resolver
 
 ## Development
 
@@ -26,6 +26,9 @@ Name server with dynamic zone resolving
     redisDatabase: 0
     serverCertificateFile: ".local/server.crt"
     serverPrivateKeyFile: ".local/server.key"
+    dnssecPath: ".local/dnssec"
+    dnssecZones:
+      - "cntt.in"
     clients:
       - name: client1
         token: secret01
@@ -37,10 +40,15 @@ Name server with dynamic zone resolving
 
     ```yaml
     address: "localhost:50051"
-    secret: "secret01"
+    secret: secret01
+    webListen:
+      - tcp
+      - ":8082"
     zones:
-      - "lan.bsthun.in"
+      - "."
     upstream: "10.2.1.1:53"
+    recordKey: 1111
+    recordFile: ".local/record.txt"
     certificateFile: ".local/server.crt"
     ```
 
