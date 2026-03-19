@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/miekg/dns"
 	"go.scnd.dev/open/nameral/type/payload"
 )
 
@@ -59,20 +60,18 @@ func (r *Store) Load() {
 		typ := strings.ToUpper(fields[1])
 		values := fields[2:]
 
+		fqdn := dns.Fqdn(name)
+
 		valuePtrs := make([]*string, len(values))
 		for i, v := range values {
 			val := v
 			valuePtrs[i] = &val
 		}
 
-		no := lineNo
-		nameCopy := name
-		typCopy := typ
-
-		records[no] = &payload.Record{
-			No:     &no,
-			Name:   &nameCopy,
-			Type:   &typCopy,
+		records[lineNo] = &payload.Record{
+			No:     &lineNo,
+			Name:   &fqdn,
+			Type:   &typ,
 			Values: valuePtrs,
 		}
 		lineNo++
@@ -120,8 +119,7 @@ func (r *Store) AddRecord(name, typ string, values []string) (uint64, error) {
 	lines, _ := r.readAllLines()
 	lineNo := uint64(len(lines)) + 1
 
-	nameCopy := name
-	typCopy := typ
+	fqdn := dns.Fqdn(name)
 	valuePtrs := make([]*string, len(values))
 	for i, v := range values {
 		val := v
@@ -130,8 +128,8 @@ func (r *Store) AddRecord(name, typ string, values []string) (uint64, error) {
 
 	r.Records[lineNo] = &payload.Record{
 		No:     &lineNo,
-		Name:   &nameCopy,
-		Type:   &typCopy,
+		Name:   &fqdn,
+		Type:   &typ,
 		Values: valuePtrs,
 	}
 	r.LineCount = lineNo
@@ -210,13 +208,12 @@ func (r *Store) UpdateRecordByNo(no uint64, typ string, values []string) bool {
 		return false
 	}
 
-	typCopy := typ
 	valuePtrs := make([]*string, len(values))
 	for j, v := range values {
 		val := v
 		valuePtrs[j] = &val
 	}
-	rec.Type = &typCopy
+	rec.Type = &typ
 	rec.Values = valuePtrs
 	return true
 }
