@@ -20,11 +20,17 @@ func (r *Handler) HandleDelete(c fiber.Ctx) error {
 		return fiber.ErrBadRequest
 	}
 
+	// * get record info before deleting
+	rec := r.Store.GetRecordByNo(*body.No)
+	if rec == nil {
+		return fiber.ErrNotFound
+	}
+
 	// * delete record line and reorder
 	if err := r.Store.DeleteRecordByNo(*body.No); err != nil {
 		return s.Error("failed to delete record", err)
 	}
 
 	// * response
-	return c.JSON(response.Success(s, true))
+	return c.JSON(response.Success(s, rec))
 }

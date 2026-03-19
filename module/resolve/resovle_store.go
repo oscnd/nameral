@@ -9,8 +9,14 @@ import (
 	"go.scnd.dev/open/nameral/util"
 )
 
-func (r *Resolve) resolveStore(records map[string][]*payload.Record, fqdn string, qtype string) (matched []*model.Record, nameFound bool) {
-	entries := records[fqdn]
+func (r *Resolve) resolveStore(records map[uint64]*payload.Record, fqdn string, qtype string) (matched []*model.Record, nameFound bool) {
+	// Collect all records matching fqdn
+	var entries []*payload.Record
+	for _, rec := range records {
+		if *rec.Name == fqdn {
+			entries = append(entries, rec)
+		}
+	}
 	if len(entries) == 0 {
 		return nil, false
 	}

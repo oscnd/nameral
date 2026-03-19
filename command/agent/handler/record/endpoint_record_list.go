@@ -15,8 +15,8 @@ func (r *Handler) HandleList(c fiber.Ctx) error {
 	defer r.Store.Mu.RUnlock()
 
 	var result []*payload.Record
-	for _, records := range r.Store.Records {
-		result = append(result, records...)
+	for _, rec := range r.Store.Records {
+		result = append(result, rec)
 	}
 
 	if result == nil {

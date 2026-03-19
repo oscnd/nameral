@@ -4,6 +4,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"go.scnd.dev/open/nameral/type/payload"
 	"go.scnd.dev/open/polygon/compat/response"
+	"go.scnd.dev/open/polygon/utility/value"
 )
 
 func (r *Handler) HandleSet(c fiber.Ctx) error {
@@ -16,7 +17,7 @@ func (r *Handler) HandleSet(c fiber.Ctx) error {
 	if err := c.Bind().JSON(body); err != nil {
 		return fiber.ErrBadRequest
 	}
-	if body.No == nil || body.Type == nil || body.Value == nil {
+	if body.No == nil || body.Type == nil || len(body.Value) == 0 {
 		return fiber.ErrBadRequest
 	}
 
@@ -26,17 +27,25 @@ func (r *Handler) HandleSet(c fiber.Ctx) error {
 		return fiber.ErrNotFound
 	}
 
+	// * convert to value
+	vals := value.ValSlice(body.Value)
+
 	// * update record in memory
-	updated := r.Store.UpdateRecordByNo(*body.No, *body.Type, []string{*body.Value})
+	updated := r.Store.UpdateRecordByNo(*body.No, *body.Type, vals)
 	if !updated {
 		return fiber.ErrNotFound
 	}
 
-	err := r.Store.WriteLine(*body.No, *rec.Name, *body.Type, []string{*body.Value})
+	err := r.Store.WriteLine(*body.No, *rec.Name, *body.Type, vals)
 	if err != nil {
 		return s.Error("failed to write line", err)
 	}
 
 	// * response
-	return c.JSON(response.Success(s, true))
+	return c.JSON(response.Success(s, &payload.Record{
+		No:     rec.No,
+		Name:   rec.Name,
+		Type:   body.Type,
+		Values: body.Value,
+	}))
 }

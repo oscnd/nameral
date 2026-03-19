@@ -7,13 +7,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/miekg/dns"
 	"go.scnd.dev/open/nameral/type/payload"
 )
 
 type Store struct {
 	Mu        sync.RWMutex
-	Records   map[string][]*payload.Record
+	Records   map[uint64]*payload.Record
 	File      string
 	stopCh    chan struct{}
 	LineCount uint64
@@ -21,7 +20,7 @@ type Store struct {
 
 func NewStore(file string) *Store {
 	return &Store{
-		Records:   make(map[string][]*payload.Record),
+		Records:   make(map[uint64]*payload.Record),
 		File:      file,
 		stopCh:    make(chan struct{}),
 		LineCount: 0,
@@ -35,7 +34,7 @@ func (r *Store) Load() {
 	}
 	defer f.Close()
 
-	records := make(map[string][]*payload.Record)
+	records := make(map[uint64]*payload.Record)
 	var lineNo uint64 = 1
 
 	scanner := bufio.NewScanner(f)
@@ -60,8 +59,6 @@ func (r *Store) Load() {
 		typ := strings.ToUpper(fields[1])
 		values := fields[2:]
 
-		fqdn := dns.Fqdn(name)
-
 		valuePtrs := make([]*string, len(values))
 		for i, v := range values {
 			val := v
@@ -72,12 +69,12 @@ func (r *Store) Load() {
 		nameCopy := name
 		typCopy := typ
 
-		records[fqdn] = append(records[fqdn], &payload.Record{
+		records[no] = &payload.Record{
 			No:     &no,
 			Name:   &nameCopy,
 			Type:   &typCopy,
 			Values: valuePtrs,
-		})
+		}
 		lineNo++
 	}
 
@@ -131,13 +128,12 @@ func (r *Store) AddRecord(name, typ string, values []string) (uint64, error) {
 		valuePtrs[i] = &val
 	}
 
-	fqdn := dns.Fqdn(name)
-	r.Records[fqdn] = append(r.Records[fqdn], &payload.Record{
+	r.Records[lineNo] = &payload.Record{
 		No:     &lineNo,
 		Name:   &nameCopy,
 		Type:   &typCopy,
 		Values: valuePtrs,
-	})
+	}
 	r.LineCount = lineNo
 
 	// * append the new line to file
@@ -155,7 +151,7 @@ func (r *Store) AddRecord(name, typ string, values []string) (uint64, error) {
 	return lineNo, err
 }
 
-// * deleterecordbyno deletes a record by its file line number and reorders remaining records
+// DeleteRecordByNo deletes a record by its file line number and reorders remaining records
 func (r *Store) DeleteRecordByNo(no uint64) error {
 	r.Mu.Lock()
 	defer r.Mu.Unlock()
@@ -177,20 +173,18 @@ func (r *Store) DeleteRecordByNo(no uint64) error {
 	}
 
 	// * update in-memory records
-	newRecords := make(map[string][]*payload.Record)
-	for fqdn, records := range r.Records {
-		for _, rec := range records {
-			if *rec.No == no {
-				continue
-			}
-			// * reorder: if record has higher line number, decrement it
-			newNo := *rec.No
-			if *rec.No > no {
-				newNo--
-			}
-			rec.No = &newNo
-			newRecords[fqdn] = append(newRecords[fqdn], rec)
+	newRecords := make(map[uint64]*payload.Record)
+	for oldNo, rec := range r.Records {
+		if oldNo == no {
+			continue
 		}
+		// * reorder: if record has higher line number, decrement it
+		newNo := oldNo
+		if oldNo > no {
+			newNo--
+		}
+		rec.No = &newNo
+		newRecords[newNo] = rec
 	}
 	r.Records = newRecords
 	if r.LineCount > 0 {
@@ -204,36 +198,27 @@ func (r *Store) GetRecordByNo(no uint64) *payload.Record {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 
-	for _, records := range r.Records {
-		for _, rec := range records {
-			if *rec.No == no {
-				return rec
-			}
-		}
-	}
-	return nil
+	return r.Records[no]
 }
 
 func (r *Store) UpdateRecordByNo(no uint64, typ string, values []string) bool {
 	r.Mu.Lock()
 	defer r.Mu.Unlock()
 
-	for fqdn, records := range r.Records {
-		for i, rec := range records {
-			if *rec.No == no {
-				typCopy := typ
-				valuePtrs := make([]*string, len(values))
-				for j, v := range values {
-					val := v
-					valuePtrs[j] = &val
-				}
-				r.Records[fqdn][i].Type = &typCopy
-				r.Records[fqdn][i].Values = valuePtrs
-				return true
-			}
-		}
+	rec := r.Records[no]
+	if rec == nil {
+		return false
 	}
-	return false
+
+	typCopy := typ
+	valuePtrs := make([]*string, len(values))
+	for j, v := range values {
+		val := v
+		valuePtrs[j] = &val
+	}
+	rec.Type = &typCopy
+	rec.Values = valuePtrs
+	return true
 }
 
 func (r *Store) readAllLines() ([]string, error) {
