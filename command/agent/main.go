@@ -95,9 +95,10 @@ func invoke(lc fx.Lifecycle, config *Config, store *store.Store) error {
 	}
 
 	lookup := &resolve.Resolve{
-		Store:     store,
-		DnsClient: &dns.Client{},
-		Upstream:  config.Upstream,
+		Store:           store,
+		DnsClient:       &dns.Client{},
+		Upstream:        config.Upstream,
+		UpstreamRewrite: config.UpstreamRewrite,
 	}
 
 	for _, zone := range config.Zones {

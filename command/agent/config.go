@@ -11,6 +11,7 @@ type Config struct {
 	TelemetryOrganization *string   `yaml:"telemetryOrganization" validate:"omitempty"`
 	Zones                 []*string `yaml:"zones" validate:"required"`
 	Upstream              *string   `yaml:"upstream" validate:"omitempty"`
+	UpstreamRewrite       []*string `yaml:"upstreamRewrite" validate:"omitempty"`
 	RecordKey             *string   `yaml:"recordKey" validate:"omitempty"`
 	RecordFile            *string   `yaml:"recordFile" validate:"omitempty"`
 	CertificateFile       *string   `yaml:"certificateFile" validate:"omitempty"`

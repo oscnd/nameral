@@ -9,9 +9,10 @@ import (
 )
 
 type Resolve struct {
-	Store     *store.Store
-	DnsClient *dns.Client
-	Upstream  *string
+	Store           *store.Store
+	DnsClient       *dns.Client
+	Upstream        *string
+	UpstreamRewrite []*string
 }
 
 func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
@@ -52,8 +53,19 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 			upstream += ":53"
 		}
 
+		// Apply UpstreamRewrite if configured
+		upstreamFqdn := fqdn
+		for i := 0; i+1 < len(r.UpstreamRewrite); i += 2 {
+			from := dns.Fqdn(*r.UpstreamRewrite[i])
+			to := dns.Fqdn(*r.UpstreamRewrite[i+1])
+			if strings.HasSuffix(upstreamFqdn, from) {
+				upstreamFqdn = strings.TrimSuffix(upstreamFqdn, from) + to
+				break
+			}
+		}
+
 		m := new(dns.Msg)
-		m.SetQuestion(fqdn, qtype)
+		m.SetQuestion(upstreamFqdn, qtype)
 		m.RecursionDesired = true
 
 		msg, _, err := r.DnsClient.Exchange(m, upstream)
