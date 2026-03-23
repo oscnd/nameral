@@ -105,11 +105,8 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 			return
 		}
 
-		if result.Ttl < 60 {
-			result.Ttl = uint32(60)
-		}
-
-		if result.Rcode == string(model.RcodeNOERROR) && result.Ttl > 0 {
+		// TODO: implement negative caching and dynamic caching
+		if result.Rcode == string(model.RcodeNOERROR) {
 			if data, err := json.Marshal(result); err == nil {
 				redis.Set(ctx, key, data, time.Duration(result.Ttl)*time.Second)
 			}

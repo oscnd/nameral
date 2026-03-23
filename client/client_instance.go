@@ -14,7 +14,7 @@ import (
 
 type Namera struct {
 	config       *Config
-	conn         *grpc.ClientConn
+	conns        []*grpc.ClientConn
 	handlers     *sync.Map // zone string → func(*model.HandleQuery) (*model.HandleResponse, error)
 	mutex        sync.Mutex
 	cancel       context.CancelFunc
@@ -33,18 +33,29 @@ func (r *Namera) Handle(zone string, handle func(*model.HandleQuery) (*model.Han
 func (r *Namera) Flush(zone string) error {
 	r.handlers.Delete(zone)
 	ctx := context.Background()
-	_, err := proto.NewResolverClient(r.conn).Flush(ctx, &proto.FlushRequest{Zone: zone})
-	return err
+	for _, conn := range r.conns {
+		_, _ = proto.NewResolverClient(conn).Flush(ctx, &proto.FlushRequest{Zone: zone})
+	}
+	return nil
 }
 
 func (r *Namera) Close() error {
 	r.cancel()
-	return r.conn.Close()
+	var errs []error
+	for _, conn := range r.conns {
+		if err := conn.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return errs[0]
+	}
+	return nil
 }
 
-func (r *Namera) stream(ctx context.Context) {
+func (r *Namera) stream(ctx context.Context, conn *grpc.ClientConn) {
 	for {
-		if err := r.streamOnce(ctx); err != nil {
+		if err := r.streamOnce(ctx, conn); err != nil {
 			select {
 			case <-ctx.Done():
 				return
@@ -62,7 +73,7 @@ func (r *Namera) stream(ctx context.Context) {
 	}
 }
 
-func (r *Namera) streamOnce(parentCtx context.Context) error {
+func (r *Namera) streamOnce(parentCtx context.Context, conn *grpc.ClientConn) error {
 	// Per-stream context so Handle() can cancel just this stream.
 	streamCtx, streamCancel := context.WithCancel(parentCtx)
 	r.mutex.Lock()
@@ -92,7 +103,7 @@ func (r *Namera) streamOnce(parentCtx context.Context) error {
 	})
 	metaCtx := metadata.NewOutgoingContext(streamCtx, md)
 
-	stream, err := proto.NewResolverClient(r.conn).Resolve(metaCtx)
+	stream, err := proto.NewResolverClient(conn).Resolve(metaCtx)
 	if err != nil {
 		if parentCtx.Err() != nil {
 			return nil

@@ -61,6 +61,7 @@ func (r *Store) Load() {
 		values := fields[2:]
 
 		fqdn := dns.Fqdn(name)
+		no := lineNo
 
 		valuePtrs := make([]*string, len(values))
 		for i, v := range values {
@@ -68,8 +69,8 @@ func (r *Store) Load() {
 			valuePtrs[i] = &val
 		}
 
-		records[lineNo] = &payload.Record{
-			No:     &lineNo,
+		records[no] = &payload.Record{
+			No:     &no,
 			Name:   &fqdn,
 			Type:   &typ,
 			Values: valuePtrs,
@@ -119,22 +120,7 @@ func (r *Store) AddRecord(name, typ string, values []string) (uint64, error) {
 	lines, _ := r.readAllLines()
 	lineNo := uint64(len(lines)) + 1
 
-	fqdn := dns.Fqdn(name)
-	valuePtrs := make([]*string, len(values))
-	for i, v := range values {
-		val := v
-		valuePtrs[i] = &val
-	}
-
-	r.Records[lineNo] = &payload.Record{
-		No:     &lineNo,
-		Name:   &fqdn,
-		Type:   &typ,
-		Values: valuePtrs,
-	}
-	r.LineCount = lineNo
-
-	// * append the new line to file
+	// * append the new line to file first
 	newLine := name + " " + typ
 	for _, v := range values {
 		newLine += " " + v
@@ -144,9 +130,30 @@ func (r *Store) AddRecord(name, typ string, values []string) (uint64, error) {
 	if err != nil {
 		return lineNo, err
 	}
-	defer f.Close()
-	_, err = f.WriteString(newLine + "\n")
-	return lineNo, err
+	if _, err := f.WriteString(newLine + "\n"); err != nil {
+		f.Close()
+		return lineNo, err
+	}
+	f.Close()
+
+	// * then add to in-memory store
+	fqdn := dns.Fqdn(name)
+	valuePtrs := make([]*string, len(values))
+	for i, v := range values {
+		val := v
+		valuePtrs[i] = &val
+	}
+
+	no := lineNo
+	r.Records[lineNo] = &payload.Record{
+		No:     &no,
+		Name:   &fqdn,
+		Type:   &typ,
+		Values: valuePtrs,
+	}
+	r.LineCount = lineNo
+
+	return lineNo, nil
 }
 
 // DeleteRecordByNo deletes a record by its file line number and reorders remaining records

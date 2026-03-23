@@ -17,18 +17,28 @@ func New(config *Config) (nameral.Nameral, error) {
 	} else {
 		creds = insecure.NewCredentials()
 	}
-	conn, err := grpc.NewClient(*config.Address, grpc.WithTransportCredentials(creds))
-	if err != nil {
-		return nil, err
+
+	conns := make([]*grpc.ClientConn, 0, len(config.Addresses))
+	for _, addr := range config.Addresses {
+		conn, err := grpc.NewClient(*addr, grpc.WithTransportCredentials(creds))
+		if err != nil {
+			for _, c := range conns {
+				c.Close()
+			}
+			return nil, err
+		}
+		conns = append(conns, conn)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	r := &Namera{
 		config:   config,
-		conn:     conn,
+		conns:    conns,
 		handlers: &sync.Map{},
 		cancel:   cancel,
 	}
-	go r.stream(ctx)
+	for _, conn := range conns {
+		go r.stream(ctx, conn)
+	}
 	return r, nil
 }

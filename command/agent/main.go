@@ -82,9 +82,9 @@ func invoke(lc fx.Lifecycle, config *Config, store *store.Store) error {
 	}
 
 	namera, err := client.New(&client.Config{
-		Address: config.Address,
-		Secret:  config.Secret,
-		Tls:     tlsConfig,
+		Addresses: config.Addresses,
+		Secret:    config.Secret,
+		Tls:       tlsConfig,
 	})
 	if err != nil {
 		return err
