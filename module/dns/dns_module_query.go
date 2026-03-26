@@ -77,6 +77,6 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*proto.R
 	}
 
 	return &proto.ResolveResult{
-		Rcode: string(model.RcodeNXDOMAIN),
+		Rcode: string(model.RcodeSERVFAIL),
 	}, nil
 }
