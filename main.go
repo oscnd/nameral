@@ -4,8 +4,8 @@ import (
 	"go.scnd.dev/open/nameral/common/config"
 	"go.scnd.dev/open/nameral/common/dns"
 	"go.scnd.dev/open/nameral/common/grpc"
-	"go.scnd.dev/open/nameral/handler"
-	resolveHandler "go.scnd.dev/open/nameral/handler/resolve"
+	"go.scnd.dev/open/nameral/endpoint"
+	resolveEndpoint "go.scnd.dev/open/nameral/endpoint/resolve"
 	dnsModule "go.scnd.dev/open/nameral/module/dns"
 	"go.scnd.dev/open/polygon/compat/common"
 	"go.uber.org/fx"
@@ -27,10 +27,10 @@ func main() {
 			grpc.Init,
 			dns.Init,
 			dnsModule.New,
-			resolveHandler.Handle,
+			resolveEndpoint.Handle,
 		),
 		fx.Invoke(
-			handler.Bind,
+			endpoint.Bind,
 		),
 	).Run()
 }

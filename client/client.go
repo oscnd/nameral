@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"go.scnd.dev/open/nameral"
+	"go.scnd.dev/open/nameral/client/nameral"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"

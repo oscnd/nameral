@@ -1,4 +1,4 @@
-package resolveHandler
+package resolveEndpoint
 
 import (
 	"github.com/redis/go-redis/v9"
@@ -10,11 +10,15 @@ import (
 )
 
 type Handler struct {
-	proto.UnsafeResolverServer
 	Layer  polygon.Layer
 	Config *config.Config
 	Redis  *redis.Client
 	Dns    *dns.Module
+}
+
+type ProtoHandler struct {
+	proto.UnsafeResolverServer
+	*Handler
 }
 
 func Handle(
@@ -30,6 +34,10 @@ func Handle(
 		Redis:  rdb,
 		Dns:    module,
 	}
-	proto.RegisterResolverServer(registrar, h)
+
+	proto.RegisterResolverServer(registrar, &ProtoHandler{
+		Handler: h,
+	})
+
 	return h
 }

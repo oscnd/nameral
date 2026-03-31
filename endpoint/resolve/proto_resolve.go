@@ -1,4 +1,4 @@
-package resolveHandler
+package resolveEndpoint
 
 import (
 	"strings"
@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (r *Handler) Resolve(server grpc.BidiStreamingServer[proto.ResolveResult, proto.ResolveQuery]) error {
+func (r *ProtoHandler) Resolve(server grpc.BidiStreamingServer[proto.ResolveResult, proto.ResolveQuery]) error {
 	// Get pre-authenticated client from context
 	clientConfig, ok := server.Context().Value(commonGrpc.ClientContextKey).(*config.Client)
 	if !ok || clientConfig == nil {

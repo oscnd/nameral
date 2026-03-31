@@ -1,4 +1,4 @@
-package resolveHandler
+package resolveEndpoint
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (r *Handler) Flush(ctx context.Context, req *proto.FlushRequest) (*proto.FlushResponse, error) {
+func (r *ProtoHandler) Flush(ctx context.Context, req *proto.FlushRequest) (*proto.FlushResponse, error) {
 	// Get pre-authenticated client from context
 	clientConfig, ok := ctx.Value(commonGrpc.ClientContextKey).(*config.Client)
 	if !ok || clientConfig == nil {
