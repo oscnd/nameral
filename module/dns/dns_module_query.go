@@ -30,6 +30,8 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*proto.R
 		return len(matchingZones[i]) > len(matchingZones[j])
 	})
 
+	var nxdomain *proto.ResolveResult
+
 	for _, zone := range matchingZones {
 		r.mutex.RLock()
 		clients := make([]*ClientStream, len(r.registry[zone].clients))
@@ -70,12 +72,18 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*proto.R
 				if res.Rcode == string(model.RcodeNOERROR) {
 					return res, nil
 				}
+				if res.Rcode == string(model.RcodeNXDOMAIN) {
+					nxdomain = res
+				}
 			case <-ctx.Done():
 				return nil, fmt.Errorf("context cancelled")
 			}
 		}
 	}
 
+	if nxdomain != nil {
+		return nxdomain, nil
+	}
 	return &proto.ResolveResult{
 		Rcode: string(model.RcodeSERVFAIL),
 	}, nil

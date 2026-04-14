@@ -94,22 +94,22 @@ func (r *Resolve) resolveStore(records map[uint64]*payload.Record, fqdn string, 
 			matched = append(matched, &model.Record{Name: &name, Type: &typ, Value: &val})
 		}
 
-	case "SOA":
-		for _, rec := range entries {
-			if *rec.Type != "SOA" {
-				continue
-			}
-			typ := "SOA"
-			val := util.JoinValues(rec.Values)
-			matched = append(matched, &model.Record{Name: &name, Type: &typ, Value: &val})
-		}
-
 	case "TXT":
 		for _, rec := range entries {
 			if *rec.Type != "TXT" {
 				continue
 			}
 			typ := "TXT"
+			val := util.JoinValues(rec.Values)
+			matched = append(matched, &model.Record{Name: &name, Type: &typ, Value: &val})
+		}
+
+	case "SOA":
+		for _, rec := range entries {
+			if *rec.Type != "SOA" {
+				continue
+			}
+			typ := "SOA"
 			val := util.JoinValues(rec.Values)
 			matched = append(matched, &model.Record{Name: &name, Type: &typ, Value: &val})
 		}

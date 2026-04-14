@@ -77,8 +77,12 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 			return &model.HandleResponse{Rcode: &model.RcodeNXDOMAIN}, nil
 		}
 
-		if msg.Rcode != dns.RcodeSuccess || len(msg.Answer) == 0 {
+		if msg.Rcode != dns.RcodeSuccess {
 			return &model.HandleResponse{Rcode: &model.RcodeSERVFAIL}, nil
+		}
+
+		if len(msg.Answer) == 0 {
+			return &model.HandleResponse{Rcode: &model.RcodeNOERROR}, nil
 		}
 
 		resp := &model.HandleResponse{Rcode: &model.RcodeNOERROR}
