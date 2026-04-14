@@ -16,14 +16,11 @@ func (r *Handler) HandleDelete(c fiber.Ctx) error {
 	if err := c.Bind().JSON(body); err != nil {
 		return s.Error("unable to parse body", err)
 	}
-	if body.No == nil {
-		return fiber.ErrBadRequest
-	}
 
 	// * get record info before deleting
 	rec := r.Store.GetRecordByNo(*body.No)
 	if rec == nil {
-		return fiber.ErrNotFound
+		return s.Error("record not found", nil)
 	}
 
 	// * delete record line and reorder

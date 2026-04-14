@@ -14,10 +14,7 @@ func (r *Handler) HandleAdd(c fiber.Ctx) error {
 	// * parse body
 	body := new(payload.RecordAddBody)
 	if err := c.Bind().JSON(body); err != nil {
-		return fiber.ErrBadRequest
-	}
-	if body.Name == nil || body.Type == nil || len(body.Values) == 0 {
-		return fiber.ErrBadRequest
+		return s.Error("unable to parse body", err)
 	}
 
 	typ := *body.Type

@@ -15,16 +15,13 @@ func (r *Handler) HandleSet(c fiber.Ctx) error {
 	// * parse body
 	body := new(payload.RecordSetBody)
 	if err := c.Bind().JSON(body); err != nil {
-		return fiber.ErrBadRequest
-	}
-	if body.No == nil || body.Type == nil || len(body.Value) == 0 {
-		return fiber.ErrBadRequest
+		return s.Error("unable to parse body", err)
 	}
 
 	// * get record to update
 	rec := r.Store.GetRecordByNo(*body.No)
 	if rec == nil {
-		return fiber.ErrNotFound
+		return s.Error("record not found", nil)
 	}
 
 	// * convert to value
@@ -33,7 +30,7 @@ func (r *Handler) HandleSet(c fiber.Ctx) error {
 	// * update record in memory
 	updated := r.Store.UpdateRecordByNo(*body.No, *body.Type, vals)
 	if !updated {
-		return fiber.ErrNotFound
+		return s.Error("failed to update record", nil)
 	}
 
 	err := r.Store.WriteLine(*body.No, *rec.Name, *body.Type, vals)
