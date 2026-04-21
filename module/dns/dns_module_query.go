@@ -26,20 +26,24 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*model.R
 		return &model.ResolveResult{Rcode: &model.RcodeSERVFAIL}, nil
 	}
 
-	// Sort by zone length descending (most specific first)
+	// sort by zone length descending
 	sort.Slice(matchingZones, func(i, j int) bool {
 		return len(matchingZones[i]) > len(matchingZones[j])
 	})
 
 	nxdomain := false
+	resolved := make(map[*ClientStream]struct{})
 
 	for _, zone := range matchingZones {
 		r.mutex.RLock()
-		clients := make([]*ClientStream, len(r.registry[zone].clients))
-		copy(clients, r.registry[zone].clients)
+		clients := r.registry[zone].clients
 		r.mutex.RUnlock()
 
 		for _, client := range clients {
+			if _, ok := resolved[client]; ok {
+				continue
+			}
+
 			subdomain := name
 			if zone != "." {
 				if name == zone {
@@ -76,6 +80,7 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*model.R
 				if res.Rcode == string(model.RcodeNXDOMAIN) {
 					nxdomain = true
 				}
+				resolved[client] = struct{}{}
 			case <-ctx.Done():
 				return nil, fmt.Errorf("context cancelled")
 			}
@@ -84,13 +89,16 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*model.R
 
 	if nxdomain {
 		return &model.ResolveResult{
-			Rcode:     &model.RcodeNXDOMAIN,
-			ExpiredAt: nil,
-			Records:   nil,
+			No:         nil,
+			Rcode:      &model.RcodeNXDOMAIN,
+			ResolvedAt: nil,
+			ExpiredAt:  nil,
+			Records:    nil,
 		}, nil
 	}
 
 	return &model.ResolveResult{
+		No:         nil,
 		Rcode:      &model.RcodeSERVFAIL,
 		ResolvedAt: nil,
 		ExpiredAt:  nil,
@@ -112,6 +120,7 @@ func MapperResolveResult(res *proto.ResolveResult) *model.ResolveResult {
 	}
 
 	return &model.ResolveResult{
+		No:         &res.No,
 		Rcode:      &rcode,
 		ResolvedAt: &now,
 		ExpiredAt:  &expiredAt,

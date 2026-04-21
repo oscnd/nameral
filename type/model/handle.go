@@ -29,6 +29,7 @@ type Record struct {
 }
 
 type ResolveResult struct {
+	No         *uint64    `json:"no"`
 	Rcode      *Rcode     `json:"rcode"`
 	ResolvedAt *time.Time `json:"resolvedAt"`
 	ExpiredAt  *time.Time `json:"expiredAt"`
