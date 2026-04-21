@@ -26,7 +26,10 @@ func buildResponse(r *dns.Msg, result *model.ResolveResult) *dns.Msg {
 		m.Rcode = dns.RcodeSuccess
 		var ttl int
 		if result.ExpiredAt != nil {
-			ttl = int(time.Until(*result.ExpiredAt).Seconds())
+			ttl = int(time.Until(*result.ExpiredAt).Seconds() - 30)
+			if ttl < 0 {
+				ttl = 0
+			}
 		}
 		for _, rec := range result.Records {
 			rrStr := fmt.Sprintf("%s %d IN %s %s", dns.Fqdn(*rec.Name), ttl, *rec.Type, *rec.Value)
@@ -35,7 +38,7 @@ func buildResponse(r *dns.Msg, result *model.ResolveResult) *dns.Msg {
 				m.Answer = append(m.Answer, parsed)
 			}
 		}
-	case (model.RcodeNXDOMAIN):
+	case model.RcodeNXDOMAIN:
 		m.Rcode = dns.RcodeNameError
 	default:
 		m.Rcode = dns.RcodeServerFailure
