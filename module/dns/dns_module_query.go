@@ -99,8 +99,9 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*model.R
 }
 
 func MapperResolveResult(res *proto.ResolveResult) *model.ResolveResult {
+	now := time.Now()
 	rcode := model.Rcode(res.Rcode)
-	expiredAt := time.Now().Add(time.Duration(res.Ttl) * time.Second)
+	expiredAt := now.Add(time.Duration(res.Ttl) * time.Second)
 	records := make([]*model.Record, len(res.Rrs))
 	for i, rr := range res.Rrs {
 		records[i] = &model.Record{
@@ -111,8 +112,9 @@ func MapperResolveResult(res *proto.ResolveResult) *model.ResolveResult {
 	}
 
 	return &model.ResolveResult{
-		Rcode:     &rcode,
-		ExpiredAt: &expiredAt,
-		Records:   records,
+		Rcode:      &rcode,
+		ResolvedAt: &now,
+		ExpiredAt:  &expiredAt,
+		Records:    records,
 	}
 }

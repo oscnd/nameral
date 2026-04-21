@@ -26,6 +26,7 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 		pending:  new(sync.Map),
 		stopCh:   make(chan struct{}),
 		registry: make(map[string]*Zone),
+		redis:    redis,
 	}
 
 	// * span
@@ -55,6 +56,7 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 			return nil
 		},
 	})
+
 	dns.HandleFunc(".", func(w dns.ResponseWriter, r *dns.Msg) {
 		if len(r.Question) == 0 {
 			replyCode(w, r, dns.RcodeServerFailure)
@@ -108,7 +110,7 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 			return
 		}
 
-		m.ResolveCacheResult(ctx, redis, key, result)
+		m.ResolveCacheResult(ctx, key, result)
 		m.ResolveResponseSend(w, r, result, do, zk)
 	})
 	return m
@@ -116,12 +118,12 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 
 func (r *Module) ResolveCacheRefresh(ctx context.Context, key, name, qtype string) {
 	if newResult, err := r.Query(ctx, name, qtype); err == nil {
-		r.ResolveCacheResult(ctx, nil, key, newResult)
+		r.ResolveCacheResult(ctx, key, newResult)
 	}
 }
 
-func (r *Module) ResolveCacheResult(ctx context.Context, redis *redis.Client, key string, result *model.ResolveResult) {
-	if redis == nil || *result.Rcode != model.RcodeNOERROR || result.ExpiredAt == nil {
+func (r *Module) ResolveCacheResult(ctx context.Context, key string, result *model.ResolveResult) {
+	if r.redis == nil || *result.Rcode != model.RcodeNOERROR || result.ExpiredAt == nil {
 		return
 	}
 	ttl := int(time.Until(*result.ExpiredAt).Seconds())
@@ -129,7 +131,7 @@ func (r *Module) ResolveCacheResult(ctx context.Context, redis *redis.Client, ke
 		return
 	}
 	if data, err := json.Marshal(result); err == nil {
-		redis.Set(ctx, key, data, time.Duration(ttl)*time.Second)
+		r.redis.Set(ctx, key, data, time.Duration(ttl)*time.Second)
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/redis/go-redis/v9"
 	"go.scnd.dev/open/polygon"
 )
 
@@ -14,6 +15,7 @@ type Module struct {
 	pending  *sync.Map        // uint64 → chan *proto.ResolveResult
 	stopCh   chan struct{}    // stop signal
 	registry map[string]*Zone // zone → zone entry
+	redis    *redis.Client
 }
 
 type Zone struct {

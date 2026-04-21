@@ -29,8 +29,8 @@ type Record struct {
 }
 
 type ResolveResult struct {
-	Rcode      *Rcode
-	ResolvedAt *time.Time
-	ExpiredAt  *time.Time
-	Records    []*Record
+	Rcode      *Rcode     `json:"rcode"`
+	ResolvedAt *time.Time `json:"resolvedAt"`
+	ExpiredAt  *time.Time `json:"expiredAt"`
+	Records    []*Record  `json:"records"`
 }
