@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"log/slog"
 	"os"
 
 	"github.com/gofiber/fiber/v3"
@@ -18,6 +19,7 @@ import (
 )
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	fx.New(
 		fx.Provide(
 			fx.Annotate(
@@ -85,6 +87,15 @@ func invoke(lc fx.Lifecycle, config *Config, store *store.Store) error {
 		Addresses: config.Addresses,
 		Secret:    config.Secret,
 		Tls:       tlsConfig,
+		OnConnect: func(addr string) {
+			slog.Info("agent connected to upstream", "addr", addr)
+		},
+		OnReconnect: func(addr string) {
+			slog.Info("agent reconnecting to upstream", "addr", addr)
+		},
+		OnResolve: func(addr string, no uint64, typ string, zone string, subdomain string) {
+			slog.Debug("agent resolving", "addr", addr, "no", no, "type", typ, "zone", zone, "subdomain", subdomain)
+		},
 	})
 	if err != nil {
 		return err

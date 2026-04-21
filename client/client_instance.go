@@ -10,6 +10,7 @@ import (
 	"go.scnd.dev/open/nameral/type/model"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 )
 
 type Namera struct {
@@ -60,6 +61,9 @@ func (r *Namera) stream(ctx context.Context, conn *grpc.ClientConn) {
 			case <-ctx.Done():
 				return
 			case <-time.After(2 * time.Second):
+				if r.config.OnReconnect != nil {
+					r.config.OnReconnect(conn.Target())
+				}
 				// retry after backoff
 			}
 		} else {
@@ -111,10 +115,18 @@ func (r *Namera) streamOnce(parentCtx context.Context, conn *grpc.ClientConn) er
 		return err
 	}
 
+	var remoteAddr string
+	if p, ok := peer.FromContext(stream.Context()); ok {
+		remoteAddr = p.Addr.String()
+	}
+	if r.config.OnConnect != nil {
+		r.config.OnConnect(remoteAddr)
+	}
+
 	for {
 		query, err := stream.Recv()
 		if err != nil {
-			// Cancelled by Handle() — reconnect immediately without backoff.
+			// cancelled by Handle()
 			if streamCtx.Err() != nil && parentCtx.Err() == nil {
 				return nil
 			}
