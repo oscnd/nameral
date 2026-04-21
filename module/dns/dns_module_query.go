@@ -9,10 +9,14 @@ import (
 
 	"go.scnd.dev/open/nameral/generate/proto"
 	"go.scnd.dev/open/nameral/type/model"
+	"go.scnd.dev/open/polygon/utility/value"
 )
 
 func (r *Module) Query(ctx context.Context, name string, qtype string) (*model.ResolveResult, error) {
-	// Collect matching zones
+	// generate request salt
+	requestSalt := *value.Random(value.RandomMixedCaseAlphaNum, 8)
+
+	// collect matching zones
 	r.mutex.RLock()
 	var matchingZones []string
 	for zone := range r.registry {
@@ -54,6 +58,7 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*model.R
 			}
 
 			no := r.no.Add(1)
+			println("salt", requestSalt, "query", no, "zone", zone, "subdomain", subdomain, "type", qtype)
 			ch := make(chan *proto.ResolveResult, 1)
 			r.pending.Store(no, ch)
 			defer r.pending.Delete(no)

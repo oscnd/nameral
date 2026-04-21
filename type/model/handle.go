@@ -11,21 +11,21 @@ var (
 )
 
 type HandleQuery struct {
-	Type      *string
-	Zone      *string
-	Subdomain *string
+	Type      *string `json:"type"`
+	Zone      *string `json:"zone"`
+	Subdomain *string `json:"subdomain"`
 }
 
 type HandleResponse struct {
-	Rcode   *Rcode
-	Ttl     *int
-	Records []*Record
+	Rcode   *Rcode    `json:"rcode"`
+	Ttl     *int      `json:"ttl"`
+	Records []*Record `json:"records"`
 }
 
 type Record struct {
-	Name  *string
-	Type  *string
-	Value *string
+	Name  *string `json:"name"`
+	Type  *string `json:"type"`
+	Value *string `json:"value"`
 }
 
 type ResolveResult struct {

@@ -13,6 +13,7 @@ type Module struct {
 	mutex    *sync.RWMutex
 	no       *atomic.Uint64
 	pending  *sync.Map        // uint64 → chan *proto.ResolveResult
+	inflight *sync.Map        // string (cache key) → chan *model.ResolveResult
 	stopCh   chan struct{}    // stop signal
 	registry map[string]*Zone // zone → zone entry
 	redis    *redis.Client

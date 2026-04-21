@@ -24,6 +24,7 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 		mutex:    new(sync.RWMutex),
 		no:       new(atomic.Uint64),
 		pending:  new(sync.Map),
+		inflight: new(sync.Map),
 		stopCh:   make(chan struct{}),
 		registry: make(map[string]*Zone),
 		redis:    redis,
@@ -103,23 +104,43 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 			return
 		}
 
+		// coalesce concurrent requests for the same key
+		if ch, loaded := m.inflight.LoadOrStore(key, make(chan *model.ResolveResult, 1)); loaded {
+			// wait for result
+			result := <-ch.(chan *model.ResolveResult)
+			if result == nil {
+				replyCode(w, r, dns.RcodeServerFailure)
+				return
+			}
+			m.ResolveResponseSend(w, r, result, do, zk)
+			return
+		}
+
 		// Resolve via module registry
 		result, err := m.Query(ctx, name, qtype)
 		if err != nil {
+			m.inflight.Delete(key)
 			replyCode(w, r, dns.RcodeServerFailure)
 			return
 		}
 
 		m.ResolveCacheResult(ctx, key, result)
 		m.ResolveResponseSend(w, r, result, do, zk)
+
+		// broadcast result to other waiting goroutines and clean up
+		if ch, loaded := m.inflight.LoadAndDelete(key); loaded {
+			ch.(chan *model.ResolveResult) <- result
+		}
 	})
 	return m
 }
 
 func (r *Module) ResolveCacheRefresh(ctx context.Context, key, name, qtype string) {
-	if newResult, err := r.Query(ctx, name, qtype); err == nil {
-		r.ResolveCacheResult(ctx, key, newResult)
+	newResult, err := r.Query(ctx, name, qtype)
+	if err != nil {
+		return
 	}
+	r.ResolveCacheResult(ctx, key, newResult)
 }
 
 func (r *Module) ResolveCacheResult(ctx context.Context, key string, result *model.ResolveResult) {
@@ -127,8 +148,8 @@ func (r *Module) ResolveCacheResult(ctx context.Context, key string, result *mod
 		return
 	}
 	ttl := int(time.Until(*result.ExpiredAt).Seconds())
-	if ttl <= 0 {
-		return
+	if *result.Rcode == model.RcodeNOERROR && ttl < 60 {
+		ttl = 60
 	}
 	if data, err := json.Marshal(result); err == nil {
 		r.redis.Set(ctx, key, data, time.Duration(ttl)*time.Second)
