@@ -68,7 +68,6 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 			*r.UpstreamAddress += ":53"
 		}
 
-		println(fqdn)
 		// apply rewrite if configured
 		upstreamFqdn := fqdn
 		re := regexp.MustCompile(*r.UpstreamFrom)
@@ -83,15 +82,16 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 			}, nil
 		}
 
-		println("upstreamFqdn: " + upstreamFqdn)
-
 		m := new(dns.Msg)
 		m.SetQuestion(upstreamFqdn, qtype)
-		m.RecursionDesired = true
 
 		msg, _, err := r.DnsClient.Exchange(m, *r.UpstreamAddress)
-		if err != nil || msg == nil {
-			return &model.HandleResponse{Rcode: &model.RcodeSERVFAIL}, nil
+		if err != nil {
+			return &model.HandleResponse{
+				Rcode:   &model.RcodeSERVFAIL,
+				Ttl:     nil,
+				Records: nil,
+			}, nil
 		}
 
 		if msg.Rcode == dns.RcodeNameError {
@@ -135,6 +135,7 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 					Records: nil,
 				}, nil
 			}
+
 			return &model.HandleResponse{
 				Rcode:   &model.RcodeSERVFAIL,
 				Ttl:     nil,

@@ -58,10 +58,11 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*model.R
 			}
 
 			no := r.no.Add(1)
-			println("salt", requestSalt, "query", no, "zone", zone, "subdomain", subdomain, "type", qtype)
 			ch := make(chan *proto.ResolveResult, 1)
 			r.pending.Store(no, ch)
 			defer r.pending.Delete(no)
+
+			println("salt", requestSalt, "query", no, "zone", zone, "subdomain", subdomain, "type", qtype)
 
 			query := &proto.ResolveQuery{
 				No:        no,
