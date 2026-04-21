@@ -2,9 +2,9 @@ package dns
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/miekg/dns"
-	"go.scnd.dev/open/nameral/generate/proto"
 	"go.scnd.dev/open/nameral/type/model"
 )
 
@@ -17,15 +17,19 @@ func newMessage(r *dns.Msg) *dns.Msg {
 	return m
 }
 
-func buildResponse(r *dns.Msg, result *proto.ResolveResult) *dns.Msg {
+func buildResponse(r *dns.Msg, result *model.ResolveResult) *dns.Msg {
 	m := newMessage(r)
 	m.Authoritative = true
 
-	switch model.Rcode(result.Rcode) {
+	switch *result.Rcode {
 	case model.RcodeNOERROR:
 		m.Rcode = dns.RcodeSuccess
-		for _, rr := range result.Rrs {
-			rrStr := fmt.Sprintf("%s %d IN %s %s", dns.Fqdn(rr.Name), result.Ttl, rr.Type, rr.Value)
+		var ttl int
+		if result.ExpiredAt != nil {
+			ttl = int(time.Until(*result.ExpiredAt).Seconds())
+		}
+		for _, rec := range result.Records {
+			rrStr := fmt.Sprintf("%s %d IN %s %s", dns.Fqdn(*rec.Name), ttl, *rec.Type, *rec.Value)
 			parsed, err := dns.NewRR(rrStr)
 			if err == nil {
 				m.Answer = append(m.Answer, parsed)

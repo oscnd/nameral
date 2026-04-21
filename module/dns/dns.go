@@ -13,7 +13,6 @@ import (
 	"github.com/miekg/dns"
 	"github.com/redis/go-redis/v9"
 	"go.scnd.dev/open/nameral/common/config"
-	"go.scnd.dev/open/nameral/generate/proto"
 	"go.scnd.dev/open/nameral/type/model"
 	"go.scnd.dev/open/polygon"
 	"go.uber.org/fx"
@@ -82,19 +81,23 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 			return
 		}
 
-		// Redis cache check
+		// redis cache check
 		key := fmt.Sprintf("dns:%s:%s", name, qtype)
 		if cached, err := redis.Get(ctx, key).Result(); err == nil {
-			result := new(proto.ResolveResult)
+			result := new(model.ResolveResult)
 			if json.Unmarshal([]byte(cached), result) != nil {
 				replyCode(w, r, dns.RcodeServerFailure)
 				return
 			}
-			msg := buildResponse(r, result)
-			if do && zk != nil && len(msg.Answer) > 0 {
-				m.dnssecSign(msg, msg.Answer, zk)
+
+			// if resolvation staled, return immediately but re-query in background
+			if result.ResolvedAt != nil && time.Since(*result.ResolvedAt) > 30*time.Second {
+				m.ResolveResponseSend(w, r, result, do, zk)
+				go m.ResolveCacheRefresh(context.Background(), key, name, qtype)
+				return
 			}
-			w.WriteMsg(msg)
+
+			m.ResolveResponseSend(w, r, result, do, zk)
 			return
 		}
 
@@ -105,18 +108,35 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 			return
 		}
 
-		// TODO: implement negative caching and dynamic caching
-		if result.Rcode == string(model.RcodeNOERROR) && result.Ttl > 0 {
-			if data, err := json.Marshal(result); err == nil {
-				redis.Set(ctx, key, data, time.Duration(result.Ttl)*time.Second)
-			}
-		}
-
-		msg := buildResponse(r, result)
-		if do && zk != nil && len(msg.Answer) > 0 {
-			m.dnssecSign(msg, msg.Answer, zk)
-		}
-		_ = w.WriteMsg(msg)
+		m.ResolveCacheResult(ctx, redis, key, result)
+		m.ResolveResponseSend(w, r, result, do, zk)
 	})
 	return m
+}
+
+func (r *Module) ResolveCacheRefresh(ctx context.Context, key, name, qtype string) {
+	if newResult, err := r.Query(ctx, name, qtype); err == nil {
+		r.ResolveCacheResult(ctx, nil, key, newResult)
+	}
+}
+
+func (r *Module) ResolveCacheResult(ctx context.Context, redis *redis.Client, key string, result *model.ResolveResult) {
+	if redis == nil || *result.Rcode != model.RcodeNOERROR || result.ExpiredAt == nil {
+		return
+	}
+	ttl := int(time.Until(*result.ExpiredAt).Seconds())
+	if ttl <= 0 {
+		return
+	}
+	if data, err := json.Marshal(result); err == nil {
+		redis.Set(ctx, key, data, time.Duration(ttl)*time.Second)
+	}
+}
+
+func (r *Module) ResolveResponseSend(w dns.ResponseWriter, msg *dns.Msg, result *model.ResolveResult, do bool, zk *ZoneKey) {
+	dnsMsg := buildResponse(msg, result)
+	if do && zk != nil && len(dnsMsg.Answer) > 0 {
+		r.dnssecSign(dnsMsg, dnsMsg.Answer, zk)
+	}
+	_ = w.WriteMsg(dnsMsg)
 }

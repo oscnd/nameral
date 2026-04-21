@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"go.scnd.dev/open/nameral/generate/proto"
 	"go.scnd.dev/open/nameral/type/model"
 )
 
-func (r *Module) Query(ctx context.Context, name string, qtype string) (*proto.ResolveResult, error) {
+func (r *Module) Query(ctx context.Context, name string, qtype string) (*model.ResolveResult, error) {
 	// Collect matching zones
 	r.mutex.RLock()
 	var matchingZones []string
@@ -22,7 +23,7 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*proto.R
 	r.mutex.RUnlock()
 
 	if len(matchingZones) == 0 {
-		return &proto.ResolveResult{Rcode: string(model.RcodeSERVFAIL)}, nil
+		return &model.ResolveResult{Rcode: &model.RcodeSERVFAIL}, nil
 	}
 
 	// Sort by zone length descending (most specific first)
@@ -30,7 +31,7 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*proto.R
 		return len(matchingZones[i]) > len(matchingZones[j])
 	})
 
-	var nxdomain *proto.ResolveResult
+	nxdomain := false
 
 	for _, zone := range matchingZones {
 		r.mutex.RLock()
@@ -70,10 +71,10 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*proto.R
 			select {
 			case res := <-ch:
 				if res.Rcode == string(model.RcodeNOERROR) {
-					return res, nil
+					return MapperResolveResult(res), nil
 				}
 				if res.Rcode == string(model.RcodeNXDOMAIN) {
-					nxdomain = res
+					nxdomain = true
 				}
 			case <-ctx.Done():
 				return nil, fmt.Errorf("context cancelled")
@@ -81,10 +82,37 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*proto.R
 		}
 	}
 
-	if nxdomain != nil {
-		return nxdomain, nil
+	if nxdomain {
+		return &model.ResolveResult{
+			Rcode:     &model.RcodeNXDOMAIN,
+			ExpiredAt: nil,
+			Records:   nil,
+		}, nil
 	}
-	return &proto.ResolveResult{
-		Rcode: string(model.RcodeSERVFAIL),
+
+	return &model.ResolveResult{
+		Rcode:      &model.RcodeSERVFAIL,
+		ResolvedAt: nil,
+		ExpiredAt:  nil,
+		Records:    nil,
 	}, nil
+}
+
+func MapperResolveResult(res *proto.ResolveResult) *model.ResolveResult {
+	rcode := model.Rcode(res.Rcode)
+	expiredAt := time.Now().Add(time.Duration(res.Ttl) * time.Second)
+	records := make([]*model.Record, len(res.Rrs))
+	for i, rr := range res.Rrs {
+		records[i] = &model.Record{
+			Name:  &rr.Name,
+			Type:  &rr.Type,
+			Value: &rr.Value,
+		}
+	}
+
+	return &model.ResolveResult{
+		Rcode:     &rcode,
+		ExpiredAt: &expiredAt,
+		Records:   records,
+	}
 }

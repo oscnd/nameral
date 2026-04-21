@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 type Rcode string
 
 var (
@@ -24,4 +26,11 @@ type Record struct {
 	Name  *string
 	Type  *string
 	Value *string
+}
+
+type ResolveResult struct {
+	Rcode      *Rcode
+	ResolvedAt *time.Time
+	ExpiredAt  *time.Time
+	Records    []*Record
 }
