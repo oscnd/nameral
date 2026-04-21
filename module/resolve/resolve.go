@@ -39,10 +39,18 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 
 		if nameFound {
 			if len(matched) > 0 {
-				ttl := 30
-				return &model.HandleResponse{Rcode: &model.RcodeNOERROR, Ttl: &ttl, Records: matched}, nil
+				ttl := 60
+				return &model.HandleResponse{
+					Rcode:   &model.RcodeNOERROR,
+					Ttl:     &ttl,
+					Records: matched,
+				}, nil
 			}
-			return &model.HandleResponse{Rcode: &model.RcodeNOERROR}, nil
+			return &model.HandleResponse{
+				Rcode:   &model.RcodeNOERROR,
+				Ttl:     nil,
+				Records: nil,
+			}, nil
 		}
 	}
 
@@ -53,7 +61,7 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 			upstream += ":53"
 		}
 
-		// Apply UpstreamRewrite if configured
+		// apply rewrite if configured
 		upstreamFqdn := fqdn
 		for i := 0; i+1 < len(r.UpstreamRewrite); i += 2 {
 			from := dns.Fqdn(*r.UpstreamRewrite[i])
@@ -82,10 +90,18 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 		}
 
 		if len(msg.Answer) == 0 {
-			return &model.HandleResponse{Rcode: &model.RcodeNOERROR}, nil
+			return &model.HandleResponse{
+				Rcode:   &model.RcodeNOERROR,
+				Ttl:     nil,
+				Records: nil,
+			}, nil
 		}
 
-		resp := &model.HandleResponse{Rcode: &model.RcodeNOERROR}
+		resp := &model.HandleResponse{
+			Rcode:   &model.RcodeNOERROR,
+			Ttl:     nil,
+			Records: nil,
+		}
 
 		for _, rr := range msg.Answer {
 			hdr := rr.Header()
@@ -111,5 +127,9 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 		return resp, nil
 	}
 
-	return &model.HandleResponse{Rcode: &model.RcodeNXDOMAIN}, nil
+	return &model.HandleResponse{
+		Rcode:   &model.RcodeNXDOMAIN,
+		Ttl:     nil,
+		Records: nil,
+	}, nil
 }
