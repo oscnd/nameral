@@ -17,26 +17,18 @@ func (r *Handler) HandleAdd(c fiber.Ctx) error {
 		return s.Error("unable to parse body", err)
 	}
 
-	typ := *body.Type
-	name := *body.Name
-
-	// * convert []*string to []string
-	vals := make([]string, len(body.Values))
-	for i, v := range body.Values {
-		vals[i] = *v
-	}
-
-	// * add record and get line number
-	no, err := r.Store.AddRecord(name, typ, vals)
+	// * add record
+	hash, err := r.Store.AddRecord(*body.Name, *body.Type, *body.Value)
 	if err != nil {
 		return s.Error("failed to add record", err)
 	}
 
 	// * response
+	h := hash
 	return c.JSON(response.Success(s, &payload.Record{
-		No:     &no,
-		Name:   &name,
-		Type:   &typ,
-		Values: body.Values,
+		Hash:  &h,
+		Name:  body.Name,
+		Type:  body.Type,
+		Value: body.Value,
 	}))
 }

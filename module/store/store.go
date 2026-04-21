@@ -12,19 +12,17 @@ import (
 )
 
 type Store struct {
-	Mu        sync.RWMutex
-	Records   map[uint64]*payload.Record
-	File      string
-	stopCh    chan struct{}
-	LineCount uint64
+	Mu      sync.RWMutex
+	Records map[string]*payload.Record
+	File    string
+	stopCh  chan struct{}
 }
 
 func NewStore(file string) *Store {
 	return &Store{
-		Records:   make(map[uint64]*payload.Record),
-		File:      file,
-		stopCh:    make(chan struct{}),
-		LineCount: 0,
+		Records: make(map[string]*payload.Record),
+		File:    file,
+		stopCh:  make(chan struct{}),
 	}
 }
 
@@ -35,193 +33,155 @@ func (r *Store) Load() {
 	}
 	defer f.Close()
 
-	records := make(map[uint64]*payload.Record)
-	var lineNo uint64 = 1
+	records := make(map[string]*payload.Record)
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 
-		// * check if this line is a comment, blank, or a record
 		if line == "" || strings.HasPrefix(line, "#") {
-			// * just count the line, don't create a record
-			lineNo++
 			continue
 		}
 
 		fields := strings.Fields(line)
 		if len(fields) < 3 {
-			// * not a valid record line, but still counts as a line
-			lineNo++
 			continue
 		}
 
 		name := fields[0]
 		typ := strings.ToUpper(fields[1])
-		values := fields[2:]
+		value := strings.Join(fields[2:], " ")
 
 		fqdn := dns.Fqdn(name)
-		no := lineNo
+		h := HashRecord(fqdn, typ, value)
 
-		valuePtrs := make([]*string, len(values))
-		for i, v := range values {
-			val := v
-			valuePtrs[i] = &val
+		records[h] = &payload.Record{
+			Hash:  &h,
+			Name:  &fqdn,
+			Type:  &typ,
+			Value: &value,
 		}
-
-		records[no] = &payload.Record{
-			No:     &no,
-			Name:   &fqdn,
-			Type:   &typ,
-			Values: valuePtrs,
-		}
-		lineNo++
 	}
 
 	r.Mu.Lock()
 	r.Records = records
-	r.LineCount = lineNo - 1
 	r.Mu.Unlock()
 }
 
-func (r *Store) WriteLine(lineNo uint64, name, typ string, values []string) error {
+func (r *Store) AddRecord(name, typ, value string) (string, error) {
 	r.Mu.Lock()
 	defer r.Mu.Unlock()
 
-	// * read all lines
-	lines, err := r.readAllLines()
-	if err != nil {
-		return err
+	fqdn := dns.Fqdn(name)
+	h := HashRecord(fqdn, typ, value)
+
+	r.Records[h] = &payload.Record{
+		Hash:  &h,
+		Name:  &fqdn,
+		Type:  &typ,
+		Value: &value,
 	}
 
-	// * build the new line
-	newLine := name + " " + typ
-	for _, v := range values {
-		newLine += " " + v
+	newLine := fqdn + " " + typ + " " + value
+	if err := r.appendLine(newLine); err != nil {
+		return h, err
 	}
 
-	// * update or append the line
-	if lineNo > 0 && lineNo <= uint64(len(lines)) {
-		lines[lineNo-1] = newLine
-	} else if lineNo == uint64(len(lines))+1 {
-		lines = append(lines, newLine)
-	} else {
+	return h, nil
+}
+
+func (r *Store) DeleteRecordByHash(hash string) error {
+	r.Mu.Lock()
+	defer r.Mu.Unlock()
+
+	rec, ok := r.Records[hash]
+	if !ok {
 		return nil
 	}
 
-	return r.writeAllLines(lines)
-}
+	name := *rec.Name
+	typ := *rec.Type
+	value := *rec.Value
 
-func (r *Store) AddRecord(name, typ string, values []string) (uint64, error) {
-	r.Mu.Lock()
-	defer r.Mu.Unlock()
-
-	// * read current file to get actual line count
-	lines, _ := r.readAllLines()
-	lineNo := uint64(len(lines)) + 1
-
-	// * append the new line to file first
-	newLine := name + " " + typ
-	for _, v := range values {
-		newLine += " " + v
-	}
-
-	f, err := os.OpenFile(r.File, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return lineNo, err
-	}
-	if _, err := f.WriteString(newLine + "\n"); err != nil {
-		f.Close()
-		return lineNo, err
-	}
-	f.Close()
-
-	// * then add to in-memory store
-	fqdn := dns.Fqdn(name)
-	valuePtrs := make([]*string, len(values))
-	for i, v := range values {
-		val := v
-		valuePtrs[i] = &val
-	}
-
-	no := lineNo
-	r.Records[lineNo] = &payload.Record{
-		No:     &no,
-		Name:   &fqdn,
-		Type:   &typ,
-		Values: valuePtrs,
-	}
-	r.LineCount = lineNo
-
-	return lineNo, nil
-}
-
-// DeleteRecordByNo deletes a record by its file line number and reorders remaining records
-func (r *Store) DeleteRecordByNo(no uint64) error {
-	r.Mu.Lock()
-	defer r.Mu.Unlock()
-
-	// * read all lines from file
 	lines, err := r.readAllLines()
 	if err != nil {
 		return err
 	}
 
-	// * remove the line at position no
-	if no > 0 && no <= uint64(len(lines)) {
-		lines = append(lines[:no-1], lines[no:]...)
+	newLines := make([]string, 0, len(lines))
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			newLines = append(newLines, line)
+			continue
+		}
+		lineName := fields[0]
+		lineTyp := strings.ToUpper(fields[1])
+		lineVal := strings.Join(fields[2:], " ")
+
+		if lineName == name && lineTyp == typ && lineVal == value {
+			continue
+		}
+		newLines = append(newLines, line)
 	}
 
-	// * write back to file
-	if err := r.writeAllLines(lines); err != nil {
+	if err := r.writeAllLines(newLines); err != nil {
 		return err
 	}
 
-	// * update in-memory records
-	newRecords := make(map[uint64]*payload.Record)
-	for oldNo, rec := range r.Records {
-		if oldNo == no {
-			continue
-		}
-		// * reorder: if record has higher line number, decrement it
-		newNo := oldNo
-		if oldNo > no {
-			newNo--
-		}
-		rec.No = &newNo
-		newRecords[newNo] = rec
-	}
-	r.Records = newRecords
-	if r.LineCount > 0 {
-		r.LineCount--
-	}
-
+	delete(r.Records, hash)
 	return nil
 }
 
-func (r *Store) GetRecordByNo(no uint64) *payload.Record {
+func (r *Store) GetRecordByHash(hash string) *payload.Record {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 
-	return r.Records[no]
+	return r.Records[hash]
 }
 
-func (r *Store) UpdateRecordByNo(no uint64, typ string, values []string) bool {
+func (r *Store) UpdateRecordByHash(hash, typ, value string) bool {
 	r.Mu.Lock()
 	defer r.Mu.Unlock()
 
-	rec := r.Records[no]
-	if rec == nil {
+	rec, ok := r.Records[hash]
+	if !ok {
 		return false
 	}
 
-	valuePtrs := make([]*string, len(values))
-	for j, v := range values {
-		val := v
-		valuePtrs[j] = &val
-	}
+	name := *rec.Name
+	oldValue := *rec.Value
+
 	rec.Type = &typ
-	rec.Values = valuePtrs
+	rec.Value = &value
+
+	lines, err := r.readAllLines()
+	if err != nil {
+		return false
+	}
+
+	newLines := make([]string, 0, len(lines))
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			newLines = append(newLines, line)
+			continue
+		}
+		lineName := fields[0]
+		lineTyp := strings.ToUpper(fields[1])
+		lineVal := strings.Join(fields[2:], " ")
+
+		if lineName == name && lineTyp == typ && lineVal == oldValue {
+			newLines = append(newLines, name+" "+typ+" "+value)
+		} else {
+			newLines = append(newLines, line)
+		}
+	}
+
+	if err := r.writeAllLines(newLines); err != nil {
+		return false
+	}
+
 	return true
 }
 
@@ -252,6 +212,17 @@ func (r *Store) writeAllLines(lines []string) error {
 		_, _ = w.WriteString(line + "\n")
 	}
 	return w.Flush()
+}
+
+func (r *Store) appendLine(line string) error {
+	f, err := os.OpenFile(r.File, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(line + "\n")
+	return err
 }
 
 func (r *Store) Tick() {

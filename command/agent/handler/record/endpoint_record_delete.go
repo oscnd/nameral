@@ -18,13 +18,13 @@ func (r *Handler) HandleDelete(c fiber.Ctx) error {
 	}
 
 	// * get record info before deleting
-	rec := r.Store.GetRecordByNo(*body.No)
+	rec := r.Store.GetRecordByHash(*body.Hash)
 	if rec == nil {
 		return s.Error("record not found", nil)
 	}
 
-	// * delete record line and reorder
-	if err := r.Store.DeleteRecordByNo(*body.No); err != nil {
+	// * delete record
+	if err := r.Store.DeleteRecordByHash(*body.Hash); err != nil {
 		return s.Error("failed to delete record", err)
 	}
 

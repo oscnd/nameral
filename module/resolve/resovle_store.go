@@ -6,11 +6,9 @@ import (
 	"github.com/miekg/dns"
 	"go.scnd.dev/open/nameral/type/model"
 	"go.scnd.dev/open/nameral/type/payload"
-	"go.scnd.dev/open/nameral/util"
 )
 
-func (r *Resolve) resolveStore(records map[uint64]*payload.Record, fqdn string, qtype string) (matched []*model.Record, nameFound bool) {
-	// Collect all records matching fqdn
+func (r *Resolve) resolveStore(records map[string]*payload.Record, fqdn string, qtype string) (matched []*model.Record, nameFound bool) {
 	var entries []*payload.Record
 	for _, rec := range records {
 		if *rec.Name == fqdn {
@@ -26,7 +24,6 @@ func (r *Resolve) resolveStore(records map[uint64]*payload.Record, fqdn string, 
 
 	switch qtype {
 	case "A":
-		// If CNAME exists, redirect entirely to CNAME resolution
 		for _, rec := range entries {
 			if *rec.Type == "CNAME" {
 				return r.resolveStore(records, fqdn, "CNAME")
@@ -37,29 +34,27 @@ func (r *Resolve) resolveStore(records map[uint64]*payload.Record, fqdn string, 
 				continue
 			}
 			typ := "A"
-			val := util.JoinValues(rec.Values)
+			val := *rec.Value
 			matched = append(matched, &model.Record{Name: &name, Type: &typ, Value: &val})
 		}
 
 	case "CNAME":
-		// If A records exist, return them directly
 		for _, rec := range entries {
 			if *rec.Type == "A" {
 				typ := "A"
-				val := util.JoinValues(rec.Values)
+				val := *rec.Value
 				matched = append(matched, &model.Record{Name: &name, Type: &typ, Value: &val})
 			}
 		}
 		if len(matched) > 0 {
 			return
 		}
-		// Return CNAME RR(s) and resolve the target (store first, then upstream)
 		for _, rec := range entries {
 			if *rec.Type != "CNAME" {
 				continue
 			}
 			typ := "CNAME"
-			target := util.JoinValues(rec.Values)
+			target := *rec.Value
 			matched = append(matched, &model.Record{Name: &name, Type: &typ, Value: &target})
 
 			targetFqdn := dns.Fqdn(target)
@@ -80,7 +75,7 @@ func (r *Resolve) resolveStore(records map[uint64]*payload.Record, fqdn string, 
 				continue
 			}
 			typ := "MX"
-			val := util.JoinValues(rec.Values)
+			val := *rec.Value
 			matched = append(matched, &model.Record{Name: &name, Type: &typ, Value: &val})
 		}
 
@@ -90,7 +85,7 @@ func (r *Resolve) resolveStore(records map[uint64]*payload.Record, fqdn string, 
 				continue
 			}
 			typ := "NS"
-			val := util.JoinValues(rec.Values)
+			val := *rec.Value
 			matched = append(matched, &model.Record{Name: &name, Type: &typ, Value: &val})
 		}
 
@@ -100,7 +95,7 @@ func (r *Resolve) resolveStore(records map[uint64]*payload.Record, fqdn string, 
 				continue
 			}
 			typ := "TXT"
-			val := util.JoinValues(rec.Values)
+			val := *rec.Value
 			matched = append(matched, &model.Record{Name: &name, Type: &typ, Value: &val})
 		}
 
@@ -110,7 +105,7 @@ func (r *Resolve) resolveStore(records map[uint64]*payload.Record, fqdn string, 
 				continue
 			}
 			typ := "SOA"
-			val := util.JoinValues(rec.Values)
+			val := *rec.Value
 			matched = append(matched, &model.Record{Name: &name, Type: &typ, Value: &val})
 		}
 
@@ -120,7 +115,7 @@ func (r *Resolve) resolveStore(records map[uint64]*payload.Record, fqdn string, 
 				continue
 			}
 			typ := qtype
-			val := util.JoinValues(rec.Values)
+			val := *rec.Value
 			matched = append(matched, &model.Record{Name: &name, Type: &typ, Value: &val})
 		}
 	}
