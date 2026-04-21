@@ -1,6 +1,7 @@
 package resolve
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/miekg/dns"
@@ -11,8 +12,10 @@ import (
 type Resolve struct {
 	Store           *store.Store
 	DnsClient       *dns.Client
-	Upstream        *string
-	UpstreamRewrite []*string
+	UpstreamAddress *string
+	UpstreamFrom    *string
+	UpstreamTo      *string
+	DefaultSoa      *string
 }
 
 func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
@@ -46,6 +49,11 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 					Records: matched,
 				}, nil
 			}
+			if qtype == dns.TypeSOA {
+				if resp := r.BuildSoa(fqdn); resp != nil {
+					return resp, nil
+				}
+			}
 			return &model.HandleResponse{
 				Rcode:   &model.RcodeNOERROR,
 				Ttl:     nil,
@@ -55,28 +63,33 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 	}
 
 	// Forward to upstream
-	if r.Upstream != nil {
-		upstream := *r.Upstream
-		if !strings.Contains(upstream, ":") {
-			upstream += ":53"
+	if r.UpstreamAddress != nil && r.UpstreamFrom != nil && r.UpstreamTo != nil {
+		if !strings.Contains(*r.UpstreamAddress, ":") {
+			*r.UpstreamAddress += ":53"
 		}
 
+		println(fqdn)
 		// apply rewrite if configured
 		upstreamFqdn := fqdn
-		for i := 0; i+1 < len(r.UpstreamRewrite); i += 2 {
-			from := dns.Fqdn(*r.UpstreamRewrite[i])
-			to := dns.Fqdn(*r.UpstreamRewrite[i+1])
-			if strings.HasSuffix(upstreamFqdn, from) {
-				upstreamFqdn = strings.TrimSuffix(upstreamFqdn, from) + to
-				break
-			}
+		re := regexp.MustCompile(*r.UpstreamFrom)
+		if re.MatchString(upstreamFqdn) {
+			upstreamFqdn = re.ReplaceAllString(upstreamFqdn, *r.UpstreamTo)
+		} else {
+			// if not match, ignore upstream
+			return &model.HandleResponse{
+				Rcode:   &model.RcodeNXDOMAIN,
+				Ttl:     nil,
+				Records: nil,
+			}, nil
 		}
+
+		println("upstreamFqdn: " + upstreamFqdn)
 
 		m := new(dns.Msg)
 		m.SetQuestion(upstreamFqdn, qtype)
 		m.RecursionDesired = true
 
-		msg, _, err := r.DnsClient.Exchange(m, upstream)
+		msg, _, err := r.DnsClient.Exchange(m, *r.UpstreamAddress)
 		if err != nil || msg == nil {
 			return &model.HandleResponse{Rcode: &model.RcodeSERVFAIL}, nil
 		}
@@ -91,7 +104,36 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 
 		if msg.Rcode != dns.RcodeSuccess {
 			if msg.Rcode == dns.RcodeServerFailure {
-				goto answer
+				if qtype == dns.TypeA {
+					return &model.HandleResponse{
+						Rcode:   &model.RcodeNXDOMAIN,
+						Ttl:     nil,
+						Records: nil,
+					}, nil
+				}
+
+				// Retry with A query
+				mA := new(dns.Msg)
+				mA.SetQuestion(upstreamFqdn, dns.TypeA)
+				msgA, _, errA := r.DnsClient.Exchange(mA, *r.UpstreamAddress)
+				if errA != nil || len(msgA.Answer) == 0 {
+					return &model.HandleResponse{
+						Rcode:   &model.RcodeNXDOMAIN,
+						Ttl:     nil,
+						Records: nil,
+					}, nil
+				}
+
+				// if A query succeeded, skip to NOERROR instead
+				if msgA.Rcode == dns.RcodeSuccess && len(msgA.Answer) > 0 {
+					goto answer
+				}
+
+				return &model.HandleResponse{
+					Rcode:   &model.RcodeSERVFAIL,
+					Ttl:     nil,
+					Records: nil,
+				}, nil
 			}
 			return &model.HandleResponse{
 				Rcode:   &model.RcodeSERVFAIL,
@@ -102,6 +144,11 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 
 	answer:
 		if len(msg.Answer) == 0 {
+			if qtype == dns.TypeSOA {
+				if resp := r.BuildSoa(fqdn); resp != nil {
+					return resp, nil
+				}
+			}
 			return &model.HandleResponse{
 				Rcode:   &model.RcodeNOERROR,
 				Ttl:     nil,
@@ -123,16 +170,16 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 
 			full := rr.String()
 			parts := strings.Fields(full)
-			var value string
+			var rrValue string
 			if len(parts) >= 5 {
-				value = strings.Join(parts[4:], " ")
+				rrValue = strings.Join(parts[4:], " ")
 			}
 
 			resp.Ttl = &ttl
 			resp.Records = append(resp.Records, &model.Record{
 				Name:  &rrName,
 				Type:  &rrType,
-				Value: &value,
+				Value: &rrValue,
 			})
 		}
 

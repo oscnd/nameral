@@ -8,11 +8,11 @@ import (
 )
 
 func (r *Resolve) resolveUpstream(fqdn string, qtype string) []*model.Record {
-	if r.Upstream == nil || r.DnsClient == nil {
+	if r.UpstreamAddress == nil || r.DnsClient == nil {
 		return nil
 	}
 
-	upstream := *r.Upstream
+	upstream := *r.UpstreamAddress
 	if !strings.Contains(upstream, ":") {
 		upstream += ":53"
 	}

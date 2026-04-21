@@ -105,11 +105,22 @@ func invoke(lc fx.Lifecycle, config *Config, store *store.Store) error {
 		go store.Tick()
 	}
 
+	var upstreamAddress *string
+	var upstreamFrom *string
+	var upstreamTo *string
+	if config.Upstream != nil {
+		upstreamAddress = config.Upstream.Address
+		upstreamFrom = config.Upstream.From
+		upstreamTo = config.Upstream.To
+	}
+
 	lookup := &resolve.Resolve{
 		Store:           store,
 		DnsClient:       &dns.Client{},
-		Upstream:        config.Upstream,
-		UpstreamRewrite: config.UpstreamRewrite,
+		UpstreamAddress: upstreamAddress,
+		UpstreamFrom:    upstreamFrom,
+		UpstreamTo:      upstreamTo,
+		DefaultSoa:      config.DefaultSoa,
 	}
 
 	for _, zone := range config.Zones {

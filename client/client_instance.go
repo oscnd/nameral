@@ -64,7 +64,6 @@ func (r *Namera) stream(ctx context.Context, conn *grpc.ClientConn) {
 				if r.config.OnReconnect != nil {
 					r.config.OnReconnect(conn.Target())
 				}
-				// retry after backoff
 			}
 		} else {
 			select {

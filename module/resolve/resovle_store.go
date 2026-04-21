@@ -64,7 +64,7 @@ func (r *Resolve) resolveStore(records map[string]*payload.Record, fqdn string, 
 			more, targetFound := r.resolveStore(records, targetFqdn, "CNAME")
 			if targetFound {
 				matched = append(matched, more...)
-			} else if r.Upstream != nil {
+			} else if r.UpstreamAddress != nil {
 				matched = append(matched, r.resolveUpstream(targetFqdn, "A")...)
 			}
 		}
