@@ -106,12 +106,6 @@ func (r *Module) DnssecSignNsec(dnsMsg *dns.Msg, name string, nextDomain string,
 	}
 }
 
-func (r *Module) DnssecSignAnswer(dnsMsg *dns.Msg, zk *ZoneKey, qname string, answerTypes []uint16) {
-	zoneName := zk.dnsKey.Hdr.Name
-	typeBitMap := append(answerTypes, dns.TypeRRSIG, dns.TypeNSEC, dns.TypeDNSKEY)
-	r.DnssecSignNsec(dnsMsg, qname, zoneName, dns.Fqdn(zoneName), zk.dnsKey.Algorithm, zk.dnsKey.KeyTag(), zk.privateKey, typeBitMap)
-}
-
 func (r *Module) DnssecSignNx(dnsMsg *dns.Msg, zk *ZoneKey) {
 	zoneName := zk.dnsKey.Hdr.Name
 	typeBitMap := []uint16{dns.TypeSOA, dns.TypeRRSIG, dns.TypeNSEC, dns.TypeDNSKEY}

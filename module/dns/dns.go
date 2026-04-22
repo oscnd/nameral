@@ -159,15 +159,6 @@ func (r *Module) ResolveCacheResult(ctx context.Context, key string, result *mod
 func (r *Module) ResolveResponseSend(w dns.ResponseWriter, msg *dns.Msg, result *model.ResolveResult, do bool, zk *ZoneKey) {
 	dnsMsg := buildResponse(msg, result)
 	if do && zk != nil {
-		// * check if answer has a cname target (may be cross-zone)
-		var cnameTarget string
-		for _, rr := range dnsMsg.Answer {
-			if rr.Header().Rrtype == dns.TypeCNAME {
-				cnameTarget = rr.(*dns.CNAME).Target
-				break
-			}
-		}
-
 		answer := 0
 		for _, rr := range dnsMsg.Answer {
 			if rr.Header().Rrtype != dns.TypeSOA {
@@ -176,11 +167,6 @@ func (r *Module) ResolveResponseSend(w dns.ResponseWriter, msg *dns.Msg, result 
 		}
 		if answer > 0 {
 			r.DnssecSign(&dnsMsg.Answer, dnsMsg.Answer)
-			// * for cross-zone
-			if cnameTarget != "" && len(msg.Question) > 0 {
-				targetName := strings.TrimSuffix(cnameTarget, ".")
-				r.DnssecSignAnswer(dnsMsg, zk, targetName, []uint16{dns.TypeA, dns.TypeAAAA})
-			}
 		} else if dnsMsg.Rcode == dns.RcodeNameError {
 			r.DnssecSignNx(dnsMsg, zk)
 		} else if dnsMsg.Rcode == dns.RcodeSuccess {

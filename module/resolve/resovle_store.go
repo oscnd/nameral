@@ -8,7 +8,7 @@ import (
 	"go.scnd.dev/open/nameral/type/payload"
 )
 
-func (r *Resolve) resolveStore(records map[string]*payload.Record, fqdn string, qtype string) (matched []*model.Record, nameFound bool) {
+func (r *Resolve) resolveStore(records map[string]*payload.Record, fqdn string, qtype string, zone string) (matched []*model.Record, nameFound bool) {
 	var entries []*payload.Record
 	for _, rec := range records {
 		if *rec.Name == fqdn {
@@ -26,7 +26,7 @@ func (r *Resolve) resolveStore(records map[string]*payload.Record, fqdn string, 
 	case "A":
 		for _, rec := range entries {
 			if *rec.Type == "CNAME" {
-				return r.resolveStore(records, fqdn, "CNAME")
+				return r.resolveStore(records, fqdn, "CNAME", zone)
 			}
 		}
 		for _, rec := range entries {
@@ -61,11 +61,16 @@ func (r *Resolve) resolveStore(records map[string]*payload.Record, fqdn string, 
 			if targetFqdn == fqdn {
 				continue
 			}
-			more, targetFound := r.resolveStore(records, targetFqdn, "CNAME")
+
+			zoneFqdn := dns.Fqdn(zone)
+			inZone := targetFqdn == zoneFqdn || strings.HasSuffix(targetFqdn, "."+zoneFqdn)
+			if !inZone {
+				continue
+			}
+
+			more, targetFound := r.resolveStore(records, targetFqdn, "CNAME", zone)
 			if targetFound {
 				matched = append(matched, more...)
-			} else if r.UpstreamAddress != nil {
-				matched = append(matched, r.resolveUpstream(targetFqdn, "A")...)
 			}
 		}
 

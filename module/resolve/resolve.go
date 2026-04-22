@@ -37,7 +37,7 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 	// * check record store first
 	if r.Store != nil {
 		r.Store.Mu.RLock()
-		matched, nameFound := r.resolveStore(r.Store.Records, fqdn, *q.Type)
+		matched, nameFound := r.resolveStore(r.Store.Records, fqdn, *q.Type, *q.Zone)
 		r.Store.Mu.RUnlock()
 
 		if nameFound {
