@@ -13,10 +13,10 @@ import (
 )
 
 func (r *Module) Query(ctx context.Context, name string, qtype string) (*model.ResolveResult, error) {
-	// generate request salt
+	// * generate request salt
 	requestSalt := *value.Random(value.RandomMixedCaseAlphaNum, 8)
 
-	// collect matching zones
+	// * collect matching zones
 	r.mutex.RLock()
 	var matchingZones []string
 	for zone := range r.registry {
@@ -30,7 +30,7 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*model.R
 		return &model.ResolveResult{Rcode: &model.RcodeSERVFAIL}, nil
 	}
 
-	// sort by zone length descending
+	// * sort by zone length descending
 	sort.Slice(matchingZones, func(i, j int) bool {
 		return len(matchingZones[i]) > len(matchingZones[j])
 	})

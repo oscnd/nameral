@@ -19,7 +19,7 @@ type Resolve struct {
 }
 
 func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
-	// Build FQDN
+	// * build fqdn
 	var fqdn string
 	if *q.Zone == "." {
 		fqdn = dns.Fqdn(*q.Subdomain)
@@ -34,7 +34,7 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 		return &model.HandleResponse{Rcode: &model.RcodeSERVFAIL}, nil
 	}
 
-	// Check record store first
+	// * check record store first
 	if r.Store != nil {
 		r.Store.Mu.RLock()
 		matched, nameFound := r.resolveStore(r.Store.Records, fqdn, *q.Type)
@@ -60,19 +60,19 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 		}
 	}
 
-	// Forward to upstream
+	// * forward to upstream
 	if r.UpstreamAddress != nil && r.UpstreamFrom != nil && r.UpstreamTo != nil {
 		if !strings.Contains(*r.UpstreamAddress, ":") {
 			*r.UpstreamAddress += ":53"
 		}
 
-		// apply rewrite if configured
+		// * apply rewrite if configured
 		upstreamFqdn := fqdn
 		re := regexp.MustCompile(*r.UpstreamFrom)
 		if re.MatchString(upstreamFqdn) {
 			upstreamFqdn = re.ReplaceAllString(upstreamFqdn, *r.UpstreamTo)
 		} else {
-			// if not match, ignore upstream
+			// * if not match, ignore upstream
 			return r.NxDomainResponse(*q.Zone), nil
 		}
 
@@ -102,7 +102,7 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 					}, nil
 				}
 
-				// Retry with A query
+				// * retry with a query
 				mA := new(dns.Msg)
 				mA.SetQuestion(upstreamFqdn, dns.TypeA)
 				msgA, _, errA := r.DnsClient.Exchange(mA, *r.UpstreamAddress)
@@ -110,7 +110,7 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 					return r.NxDomainResponse(*q.Zone), nil
 				}
 
-				// if A query succeeded, skip to NOERROR instead
+				// * if a query succeeded, skip to noerror instead
 				if msgA.Rcode == dns.RcodeSuccess && len(msgA.Answer) > 0 {
 					goto answer
 				}

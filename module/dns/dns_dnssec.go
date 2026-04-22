@@ -15,7 +15,7 @@ func loadZoneKey(dnssecPath, zone string) (*ZoneKey, error) {
 	keyFile := filepath.Join(dnssecPath, base+".key")
 	privFile := filepath.Join(dnssecPath, base+".private")
 
-	// Try to load existing keys
+	// * try to load existing keys
 	if keyData, err := os.ReadFile(keyFile); err == nil {
 		if rr, err := dns.NewRR(strings.TrimSpace(string(keyData))); err == nil {
 			if dnskey, ok := rr.(*dns.DNSKEY); ok {
@@ -29,7 +29,7 @@ func loadZoneKey(dnssecPath, zone string) (*ZoneKey, error) {
 		}
 	}
 
-	// Generate new key
+	// * generate new key
 	if err := os.MkdirAll(dnssecPath, 0755); err != nil {
 		return nil, fmt.Errorf("create dnssec dir: %w", err)
 	}

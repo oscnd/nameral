@@ -72,7 +72,7 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 		do := r.IsEdns0() != nil && r.IsEdns0().Do()
 		zk := m.DnssecMatchZone(name)
 
-		// Handle DNSKEY queries locally for DNSSEC zones
+		// * handle dnskey queries locally for dnssec zones
 		if q.Qtype == dns.TypeDNSKEY && zk != nil {
 			msg := newMessage(r)
 			msg.Authoritative = true
@@ -84,7 +84,7 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 			return
 		}
 
-		// redis cache check
+		// * redis cache check
 		key := fmt.Sprintf("dns:%s:%s", name, qtype)
 		if cached, err := redis.Get(ctx, key).Result(); err == nil {
 			result := new(model.ResolveResult)
@@ -93,7 +93,7 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 				return
 			}
 
-			// if resolvation staled, return immediately but re-query in background
+			// * if resolution staled, return immediately but re-query in background
 			if result.ResolvedAt != nil && time.Since(*result.ResolvedAt) > 30*time.Second {
 				m.ResolveResponseSend(w, r, result, do, zk)
 				go m.ResolveCacheRefresh(context.Background(), key, name, qtype)
@@ -104,9 +104,9 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 			return
 		}
 
-		// coalesce concurrent requests for the same key
+		// * coalesce concurrent requests for the same key
 		if ch, loaded := m.inflight.LoadOrStore(key, make(chan *model.ResolveResult, 1)); loaded {
-			// wait for result
+			// * wait for result
 			result := <-ch.(chan *model.ResolveResult)
 			if result == nil {
 				replyCode(w, r, dns.RcodeServerFailure)
@@ -116,7 +116,7 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 			return
 		}
 
-		// Resolve via module registry
+		// * resolve via module registry
 		result, err := m.Query(ctx, name, qtype)
 		if err != nil {
 			m.inflight.Delete(key)
@@ -127,7 +127,7 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 		m.ResolveCacheResult(ctx, key, result)
 		m.ResolveResponseSend(w, r, result, do, zk)
 
-		// broadcast result to other waiting goroutines and clean up
+		// * broadcast result to other waiting goroutines and clean up
 		if ch, loaded := m.inflight.LoadAndDelete(key); loaded {
 			ch.(chan *model.ResolveResult) <- result
 		}
@@ -159,7 +159,7 @@ func (r *Module) ResolveCacheResult(ctx context.Context, key string, result *mod
 func (r *Module) ResolveResponseSend(w dns.ResponseWriter, msg *dns.Msg, result *model.ResolveResult, do bool, zk *ZoneKey) {
 	dnsMsg := buildResponse(msg, result)
 	if do && zk != nil {
-		// Check if answer has a CNAME target (may be cross-zone)
+		// * check if answer has a cname target (may be cross-zone)
 		var cnameTarget string
 		for _, rr := range dnsMsg.Answer {
 			if rr.Header().Rrtype == dns.TypeCNAME {
@@ -176,7 +176,7 @@ func (r *Module) ResolveResponseSend(w dns.ResponseWriter, msg *dns.Msg, result 
 		}
 		if answer > 0 {
 			r.DnssecSign(&dnsMsg.Answer, dnsMsg.Answer)
-			// for cross-zone
+			// * for cross-zone
 			if cnameTarget != "" && len(msg.Question) > 0 {
 				targetName := strings.TrimSuffix(cnameTarget, ".")
 				r.DnssecSignAnswer(dnsMsg, zk, targetName, []uint16{dns.TypeA, dns.TypeAAAA})

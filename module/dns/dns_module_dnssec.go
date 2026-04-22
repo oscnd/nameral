@@ -118,7 +118,7 @@ func (r *Module) DnssecSignNx(dnsMsg *dns.Msg, zk *ZoneKey) {
 	dnsMsg.Ns = append(dnsMsg.Ns, nsec)
 	r.DnssecSignNsec(dnsMsg, nsec, zoneName, zoneName, zk.dnsKey.Algorithm, zk.dnsKey.KeyTag(), zk.privateKey)
 
-	// Also sign SOA records in authority section
+	// * also sign soa records in authority section
 	var soaRecords []dns.RR
 	for _, rr := range dnsMsg.Ns {
 		if rr.Header().Rrtype == dns.TypeSOA {
@@ -149,7 +149,7 @@ func (r *Module) DnssecSignNodata(dnsMsg *dns.Msg, zk *ZoneKey, qname string) {
 	dnsMsg.Ns = append(dnsMsg.Ns, nsec)
 	r.DnssecSignNsec(dnsMsg, nsec, qnameFqdn, zoneName, zk.dnsKey.Algorithm, zk.dnsKey.KeyTag(), zk.privateKey)
 
-	// Also sign SOA records in authority section
+	// * also sign soa records in authority section
 	var soaRecords []dns.RR
 	for _, rr := range dnsMsg.Ns {
 		if rr.Header().Rrtype == dns.TypeSOA {
