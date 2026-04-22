@@ -58,11 +58,35 @@ func (r *Module) DnssecSign(target *[]dns.RR, rrset []dns.RR) {
 	}
 }
 
-func (r *Module) DnssecSignNsec(dnsMsg *dns.Msg, nsec *dns.NSEC, name, signerName string, algorithm uint8, keyTag uint16, privateKey crypto.PrivateKey) {
+func (r *Module) DnssecSignAuthority(target *[]dns.RR, rrtype uint16) {
+	var records []dns.RR
+	for _, rr := range *target {
+		if rr.Header().Rrtype == rrtype {
+			records = append(records, rr)
+		}
+	}
+	if len(records) > 0 {
+		r.DnssecSign(target, records)
+	}
+}
+
+func (r *Module) DnssecSignNsec(dnsMsg *dns.Msg, name string, nextDomain string, signerName string, algorithm uint8, keyTag uint16, privateKey crypto.PrivateKey, typeBitMap []uint16) {
+	nsec := &dns.NSEC{
+		Hdr: dns.RR_Header{
+			Name:   dns.Fqdn(name),
+			Rrtype: dns.TypeNSEC,
+			Class:  dns.ClassINET,
+			Ttl:    300,
+		},
+		NextDomain: dns.Fqdn(nextDomain),
+		TypeBitMap: typeBitMap,
+	}
+	dnsMsg.Ns = append(dnsMsg.Ns, nsec)
+
 	now := time.Now().UTC()
 	rrsig := &dns.RRSIG{
 		Hdr: dns.RR_Header{
-			Name:   name,
+			Name:   dns.Fqdn(name),
 			Rrtype: dns.TypeRRSIG,
 			Class:  dns.ClassINET,
 			Ttl:    300,
@@ -83,82 +107,23 @@ func (r *Module) DnssecSignNsec(dnsMsg *dns.Msg, nsec *dns.NSEC, name, signerNam
 }
 
 func (r *Module) DnssecSignAnswer(dnsMsg *dns.Msg, zk *ZoneKey, qname string, answerTypes []uint16) {
-	zoneName := dns.Fqdn(zk.dnsKey.Hdr.Name)
-	qnameFqdn := dns.Fqdn(qname)
-
+	zoneName := zk.dnsKey.Hdr.Name
 	typeBitMap := append(answerTypes, dns.TypeRRSIG, dns.TypeNSEC, dns.TypeDNSKEY)
-	nsec := &dns.NSEC{
-		Hdr: dns.RR_Header{
-			Name:   qnameFqdn,
-			Rrtype: dns.TypeNSEC,
-			Class:  dns.ClassINET,
-			Ttl:    300,
-		},
-		NextDomain: zoneName,
-		TypeBitMap: typeBitMap,
-	}
-
-	dnsMsg.Ns = append(dnsMsg.Ns, nsec)
-	r.DnssecSignNsec(dnsMsg, nsec, qnameFqdn, zoneName, zk.dnsKey.Algorithm, zk.dnsKey.KeyTag(), zk.privateKey)
+	r.DnssecSignNsec(dnsMsg, qname, zoneName, dns.Fqdn(zoneName), zk.dnsKey.Algorithm, zk.dnsKey.KeyTag(), zk.privateKey, typeBitMap)
 }
 
 func (r *Module) DnssecSignNx(dnsMsg *dns.Msg, zk *ZoneKey) {
-	zoneName := dns.Fqdn(zk.dnsKey.Hdr.Name)
-	nsec := &dns.NSEC{
-		Hdr: dns.RR_Header{
-			Name:   zoneName,
-			Rrtype: dns.TypeNSEC,
-			Class:  dns.ClassINET,
-			Ttl:    300,
-		},
-		NextDomain: zoneName,
-		TypeBitMap: []uint16{dns.TypeSOA, dns.TypeRRSIG, dns.TypeNSEC, dns.TypeDNSKEY},
-	}
-
-	dnsMsg.Ns = append(dnsMsg.Ns, nsec)
-	r.DnssecSignNsec(dnsMsg, nsec, zoneName, zoneName, zk.dnsKey.Algorithm, zk.dnsKey.KeyTag(), zk.privateKey)
-
-	// * also sign soa records in authority section
-	var soaRecords []dns.RR
-	for _, rr := range dnsMsg.Ns {
-		if rr.Header().Rrtype == dns.TypeSOA {
-			soaRecords = append(soaRecords, rr)
-		}
-	}
-	if len(soaRecords) > 0 {
-		r.DnssecSign(&dnsMsg.Ns, soaRecords)
-	}
+	zoneName := zk.dnsKey.Hdr.Name
+	typeBitMap := []uint16{dns.TypeSOA, dns.TypeRRSIG, dns.TypeNSEC, dns.TypeDNSKEY}
+	r.DnssecSignNsec(dnsMsg, zoneName, zoneName, dns.Fqdn(zoneName), zk.dnsKey.Algorithm, zk.dnsKey.KeyTag(), zk.privateKey, typeBitMap)
+	r.DnssecSignAuthority(&dnsMsg.Ns, dns.TypeSOA)
 }
 
 func (r *Module) DnssecSignNodata(dnsMsg *dns.Msg, zk *ZoneKey, qname string) {
-	zoneName := dns.Fqdn(zk.dnsKey.Hdr.Name)
-	qnameFqdn := dns.Fqdn(qname)
-
+	zoneName := zk.dnsKey.Hdr.Name
 	typeBitMap := []uint16{dns.TypeSOA, dns.TypeNS, dns.TypeRRSIG, dns.TypeNSEC, dns.TypeDNSKEY}
-	nsec := &dns.NSEC{
-		Hdr: dns.RR_Header{
-			Name:   qnameFqdn,
-			Rrtype: dns.TypeNSEC,
-			Class:  dns.ClassINET,
-			Ttl:    300,
-		},
-		NextDomain: zoneName,
-		TypeBitMap: typeBitMap,
-	}
-
-	dnsMsg.Ns = append(dnsMsg.Ns, nsec)
-	r.DnssecSignNsec(dnsMsg, nsec, qnameFqdn, zoneName, zk.dnsKey.Algorithm, zk.dnsKey.KeyTag(), zk.privateKey)
-
-	// * also sign soa records in authority section
-	var soaRecords []dns.RR
-	for _, rr := range dnsMsg.Ns {
-		if rr.Header().Rrtype == dns.TypeSOA {
-			soaRecords = append(soaRecords, rr)
-		}
-	}
-	if len(soaRecords) > 0 {
-		r.DnssecSign(&dnsMsg.Ns, soaRecords)
-	}
+	r.DnssecSignNsec(dnsMsg, qname, zoneName, dns.Fqdn(zoneName), zk.dnsKey.Algorithm, zk.dnsKey.KeyTag(), zk.privateKey, typeBitMap)
+	r.DnssecSignAuthority(&dnsMsg.Ns, dns.TypeSOA)
 }
 
 func (r *Module) DnssecMatchZone(name string) *ZoneKey {
