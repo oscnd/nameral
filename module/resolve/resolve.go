@@ -49,7 +49,7 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 					Records: matched,
 				}, nil
 			}
-			if resp := r.BuildSoa(fqdn); resp != nil {
+			if resp := r.BuildSoa(q.Zone); resp != nil {
 				return resp, nil
 			}
 			return &model.HandleResponse{
@@ -132,7 +132,7 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 	answer:
 		if len(msg.Answer) == 0 {
 			if qtype == dns.TypeSOA {
-				if resp := r.BuildSoa(fqdn); resp != nil {
+				if resp := r.BuildSoa(q.Zone); resp != nil {
 					return resp, nil
 				}
 			}

@@ -159,13 +159,7 @@ func (r *Module) ResolveCacheResult(ctx context.Context, key string, result *mod
 func (r *Module) ResolveResponseSend(w dns.ResponseWriter, msg *dns.Msg, result *model.ResolveResult, do bool, zk *ZoneKey) {
 	dnsMsg := buildResponse(msg, result)
 	if do && zk != nil {
-		answer := 0
-		for _, rr := range dnsMsg.Answer {
-			if rr.Header().Rrtype != dns.TypeSOA {
-				answer++
-			}
-		}
-		if answer > 0 {
+		if answer := len(dnsMsg.Answer); answer > 0 {
 			r.DnssecSign(&dnsMsg.Answer, dnsMsg.Answer)
 		} else if dnsMsg.Rcode == dns.RcodeNameError {
 			r.DnssecSignNx(dnsMsg, zk)
