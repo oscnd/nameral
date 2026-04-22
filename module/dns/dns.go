@@ -78,7 +78,7 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 			msg.Authoritative = true
 			msg.Answer = append(msg.Answer, dns.Copy(zk.dnsKey))
 			if do {
-				m.DnssecSign(&msg.Answer, msg.Answer[:1], zk)
+				m.DnssecSign(&msg.Answer, msg.Answer[:1])
 			}
 			_ = w.WriteMsg(msg)
 			return
@@ -159,13 +159,21 @@ func (r *Module) ResolveCacheResult(ctx context.Context, key string, result *mod
 func (r *Module) ResolveResponseSend(w dns.ResponseWriter, msg *dns.Msg, result *model.ResolveResult, do bool, zk *ZoneKey) {
 	dnsMsg := buildResponse(msg, result)
 	if do && zk != nil {
-		if len(dnsMsg.Answer) > 0 {
-			r.DnssecSign(&dnsMsg.Answer, dnsMsg.Answer, zk)
-		} else if dnsMsg.Rcode == dns.RcodeNameError {
-			if len(dnsMsg.Ns) > 0 {
-				r.DnssecSign(&dnsMsg.Ns, dnsMsg.Ns, zk)
+		answer := 0
+		for _, rr := range dnsMsg.Answer {
+			if rr.Header().Rrtype != dns.TypeSOA {
+				answer++
 			}
+		}
+		if answer > 0 {
+			r.DnssecSign(&dnsMsg.Answer, dnsMsg.Answer)
+		} else if dnsMsg.Rcode == dns.RcodeNameError {
 			r.DnssecSignNx(dnsMsg, zk)
+		} else if dnsMsg.Rcode == dns.RcodeSuccess {
+			if len(msg.Question) > 0 {
+				q := msg.Question[0]
+				r.DnssecSignNodata(dnsMsg, zk, q.Name)
+			}
 		}
 	}
 	_ = w.WriteMsg(dnsMsg)

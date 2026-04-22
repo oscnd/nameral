@@ -39,7 +39,7 @@ func loadZoneKey(dnssecPath, zone string) (*ZoneKey, error) {
 			Name:   fqdn,
 			Rrtype: dns.TypeDNSKEY,
 			Class:  dns.ClassINET,
-			Ttl:    60,
+			Ttl:    900,
 		},
 		Flags:     257,
 		Protocol:  3,

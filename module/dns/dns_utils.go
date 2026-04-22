@@ -27,14 +27,18 @@ func buildResponse(r *dns.Msg, result *model.ResolveResult) *dns.Msg {
 		var ttl int
 		if result.ExpiredAt != nil {
 			ttl = int(time.Until(*result.ExpiredAt).Seconds() - 30)
-			if ttl < 0 {
-				ttl = 0
+			if ttl < 10 {
+				ttl = 10
 			}
 		}
 		for _, rec := range result.Records {
 			rrStr := fmt.Sprintf("%s %d IN %s %s", dns.Fqdn(*rec.Name), ttl, *rec.Type, *rec.Value)
 			parsed, err := dns.NewRR(rrStr)
 			if err == nil {
+				if len(m.Question) > 0 && m.Question[0].Qtype != dns.TypeSOA && parsed.Header().Rrtype == dns.TypeSOA {
+					m.Ns = append(m.Ns, parsed)
+					continue
+				}
 				m.Answer = append(m.Answer, parsed)
 			}
 		}

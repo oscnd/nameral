@@ -49,10 +49,8 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 					Records: matched,
 				}, nil
 			}
-			if qtype == dns.TypeSOA {
-				if resp := r.BuildSoa(fqdn); resp != nil {
-					return resp, nil
-				}
+			if resp := r.BuildSoa(fqdn); resp != nil {
+				return resp, nil
 			}
 			return &model.HandleResponse{
 				Rcode:   &model.RcodeNOERROR,

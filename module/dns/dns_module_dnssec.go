@@ -8,8 +8,8 @@ import (
 	"github.com/miekg/dns"
 )
 
-func (r *Module) DnssecSign(target *[]dns.RR, rrset []dns.RR, zk *ZoneKey) {
-	if zk == nil || len(rrset) == 0 {
+func (r *Module) DnssecSign(target *[]dns.RR, rrset []dns.RR) {
+	if len(rrset) == 0 {
 		return
 	}
 
@@ -30,6 +30,11 @@ func (r *Module) DnssecSign(target *[]dns.RR, rrset []dns.RR, zk *ZoneKey) {
 
 	now := time.Now().UTC()
 	for _, k := range order {
+		name := strings.TrimSuffix(strings.ToLower(k.name), ".")
+		zk := r.DnssecMatchZone(name)
+		if zk == nil {
+			continue
+		}
 		group := groups[k]
 		rrsig := &dns.RRSIG{
 			Hdr: dns.RR_Header{
@@ -53,6 +58,30 @@ func (r *Module) DnssecSign(target *[]dns.RR, rrset []dns.RR, zk *ZoneKey) {
 	}
 }
 
+func (r *Module) DnssecSignNsec(dnsMsg *dns.Msg, nsec *dns.NSEC, name, signerName string, algorithm uint8, keyTag uint16, privateKey crypto.PrivateKey) {
+	now := time.Now().UTC()
+	rrsig := &dns.RRSIG{
+		Hdr: dns.RR_Header{
+			Name:   name,
+			Rrtype: dns.TypeRRSIG,
+			Class:  dns.ClassINET,
+			Ttl:    300,
+		},
+		TypeCovered: dns.TypeNSEC,
+		Algorithm:   algorithm,
+		Labels:      uint8(dns.CountLabel(name)),
+		OrigTtl:     300,
+		Expiration:  uint32(now.Add(1 * time.Hour).Unix()),
+		Inception:   uint32(now.Add(-1 * time.Minute).Unix()),
+		KeyTag:      keyTag,
+		SignerName:  signerName,
+	}
+
+	if err := rrsig.Sign(privateKey.(crypto.Signer), []dns.RR{dns.Copy(nsec)}); err == nil {
+		dnsMsg.Ns = append(dnsMsg.Ns, rrsig)
+	}
+}
+
 func (r *Module) DnssecSignNx(dnsMsg *dns.Msg, zk *ZoneKey) {
 	zoneName := dns.Fqdn(zk.dnsKey.Hdr.Name)
 	nsec := &dns.NSEC{
@@ -67,28 +96,27 @@ func (r *Module) DnssecSignNx(dnsMsg *dns.Msg, zk *ZoneKey) {
 	}
 
 	dnsMsg.Ns = append(dnsMsg.Ns, nsec)
+	r.DnssecSignNsec(dnsMsg, nsec, zoneName, zoneName, zk.dnsKey.Algorithm, zk.dnsKey.KeyTag(), zk.privateKey)
+}
 
-	now := time.Now().UTC()
-	rrsig := &dns.RRSIG{
+func (r *Module) DnssecSignNodata(dnsMsg *dns.Msg, zk *ZoneKey, qname string) {
+	zoneName := dns.Fqdn(zk.dnsKey.Hdr.Name)
+	qnameFqdn := dns.Fqdn(qname)
+
+	typeBitMap := []uint16{dns.TypeSOA, dns.TypeNS, dns.TypeRRSIG, dns.TypeNSEC, dns.TypeDNSKEY}
+	nsec := &dns.NSEC{
 		Hdr: dns.RR_Header{
-			Name:   zoneName,
-			Rrtype: dns.TypeRRSIG,
+			Name:   qnameFqdn,
+			Rrtype: dns.TypeNSEC,
 			Class:  dns.ClassINET,
 			Ttl:    300,
 		},
-		TypeCovered: dns.TypeNSEC,
-		Algorithm:   zk.dnsKey.Algorithm,
-		Labels:      uint8(dns.CountLabel(zoneName)),
-		OrigTtl:     300,
-		Expiration:  uint32(now.Add(1 * time.Hour).Unix()),
-		Inception:   uint32(now.Add(-1 * time.Minute).Unix()),
-		KeyTag:      zk.dnsKey.KeyTag(),
-		SignerName:  zoneName,
+		NextDomain: zoneName,
+		TypeBitMap: typeBitMap,
 	}
 
-	if err := rrsig.Sign(zk.privateKey.(crypto.Signer), []dns.RR{dns.Copy(nsec)}); err == nil {
-		dnsMsg.Ns = append(dnsMsg.Ns, rrsig)
-	}
+	dnsMsg.Ns = append(dnsMsg.Ns, nsec)
+	r.DnssecSignNsec(dnsMsg, nsec, qnameFqdn, zoneName, zk.dnsKey.Algorithm, zk.dnsKey.KeyTag(), zk.privateKey)
 }
 
 func (r *Module) DnssecMatchZone(name string) *ZoneKey {
