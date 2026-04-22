@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/miekg/dns"
 	"go.scnd.dev/open/nameral/generate/proto"
 	"go.scnd.dev/open/nameral/type/model"
 	"go.scnd.dev/open/polygon/utility/value"
@@ -62,7 +63,7 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*model.R
 			r.pending.Store(no, ch)
 			defer r.pending.Delete(no)
 
-			println("salt", requestSalt, "query", no, "zone", zone, "subdomain", subdomain, "type", qtype)
+			println("salt", requestSalt, "query", no, "zone", zone, "subdomain", dns.Fqdn(subdomain), "type", qtype)
 
 			query := &proto.ResolveQuery{
 				No:        no,
