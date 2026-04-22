@@ -70,7 +70,7 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 		ctx := context.Background()
 
 		do := r.IsEdns0() != nil && r.IsEdns0().Do()
-		zk := m.dnssecMatchZone(name)
+		zk := m.DnssecMatchZone(name)
 
 		// Handle DNSKEY queries locally for DNSSEC zones
 		if q.Qtype == dns.TypeDNSKEY && zk != nil {
@@ -78,7 +78,7 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 			msg.Authoritative = true
 			msg.Answer = append(msg.Answer, dns.Copy(zk.dnsKey))
 			if do {
-				m.dnssecSign(msg, msg.Answer[:1], zk)
+				m.DnssecSign(&msg.Answer, msg.Answer[:1], zk)
 			}
 			_ = w.WriteMsg(msg)
 			return
@@ -158,8 +158,15 @@ func (r *Module) ResolveCacheResult(ctx context.Context, key string, result *mod
 
 func (r *Module) ResolveResponseSend(w dns.ResponseWriter, msg *dns.Msg, result *model.ResolveResult, do bool, zk *ZoneKey) {
 	dnsMsg := buildResponse(msg, result)
-	if do && zk != nil && len(dnsMsg.Answer) > 0 {
-		r.dnssecSign(dnsMsg, dnsMsg.Answer, zk)
+	if do && zk != nil {
+		if len(dnsMsg.Answer) > 0 {
+			r.DnssecSign(&dnsMsg.Answer, dnsMsg.Answer, zk)
+		} else if dnsMsg.Rcode == dns.RcodeNameError {
+			if len(dnsMsg.Ns) > 0 {
+				r.DnssecSign(&dnsMsg.Ns, dnsMsg.Ns, zk)
+			}
+			r.DnssecSignNx(dnsMsg, zk)
+		}
 	}
 	_ = w.WriteMsg(dnsMsg)
 }

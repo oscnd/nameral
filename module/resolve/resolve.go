@@ -75,11 +75,7 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 			upstreamFqdn = re.ReplaceAllString(upstreamFqdn, *r.UpstreamTo)
 		} else {
 			// if not match, ignore upstream
-			return &model.HandleResponse{
-				Rcode:   &model.RcodeNXDOMAIN,
-				Ttl:     nil,
-				Records: nil,
-			}, nil
+			return r.NxDomainResponse(*q.Zone), nil
 		}
 
 		m := new(dns.Msg)
@@ -95,11 +91,7 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 		}
 
 		if msg.Rcode == dns.RcodeNameError {
-			return &model.HandleResponse{
-				Rcode:   &model.RcodeNXDOMAIN,
-				Ttl:     nil,
-				Records: nil,
-			}, nil
+			return r.NxDomainResponse(*q.Zone), nil
 		}
 
 		if msg.Rcode != dns.RcodeSuccess {
@@ -117,11 +109,7 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 				mA.SetQuestion(upstreamFqdn, dns.TypeA)
 				msgA, _, errA := r.DnsClient.Exchange(mA, *r.UpstreamAddress)
 				if errA != nil || len(msgA.Answer) == 0 {
-					return &model.HandleResponse{
-						Rcode:   &model.RcodeNXDOMAIN,
-						Ttl:     nil,
-						Records: nil,
-					}, nil
+					return r.NxDomainResponse(*q.Zone), nil
 				}
 
 				// if A query succeeded, skip to NOERROR instead
@@ -187,9 +175,5 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 		return resp, nil
 	}
 
-	return &model.HandleResponse{
-		Rcode:   &model.RcodeNXDOMAIN,
-		Ttl:     nil,
-		Records: nil,
-	}, nil
+	return r.NxDomainResponse(*q.Zone), nil
 }

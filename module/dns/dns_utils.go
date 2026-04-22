@@ -40,6 +40,21 @@ func buildResponse(r *dns.Msg, result *model.ResolveResult) *dns.Msg {
 		}
 	case model.RcodeNXDOMAIN:
 		m.Rcode = dns.RcodeNameError
+		ttl := 300
+		if result.ExpiredAt != nil {
+			if t := int(time.Until(*result.ExpiredAt).Seconds()); t > 0 {
+				ttl = t
+			}
+		}
+		for _, rec := range result.Records {
+			if rec.Name == nil || rec.Type == nil || rec.Value == nil {
+				continue
+			}
+			rrStr := fmt.Sprintf("%s %d IN %s %s", dns.Fqdn(*rec.Name), ttl, *rec.Type, *rec.Value)
+			if parsed, err := dns.NewRR(rrStr); err == nil {
+				m.Ns = append(m.Ns, parsed)
+			}
+		}
 	default:
 		m.Rcode = dns.RcodeServerFailure
 	}

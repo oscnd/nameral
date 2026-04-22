@@ -35,7 +35,7 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*model.R
 		return len(matchingZones[i]) > len(matchingZones[j])
 	})
 
-	nxdomain := false
+	var nxResult *model.ResolveResult
 	resolved := make(map[*ClientStream]struct{})
 
 	for _, zone := range matchingZones {
@@ -83,8 +83,8 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*model.R
 				if res.Rcode == string(model.RcodeNOERROR) {
 					return MapperResolveResult(res), nil
 				}
-				if res.Rcode == string(model.RcodeNXDOMAIN) {
-					nxdomain = true
+				if res.Rcode == string(model.RcodeNXDOMAIN) && nxResult == nil {
+					nxResult = MapperResolveResult(res)
 				}
 				resolved[client] = struct{}{}
 			case <-ctx.Done():
@@ -93,14 +93,8 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*model.R
 		}
 	}
 
-	if nxdomain {
-		return &model.ResolveResult{
-			No:         nil,
-			Rcode:      &model.RcodeNXDOMAIN,
-			ResolvedAt: nil,
-			ExpiredAt:  nil,
-			Records:    nil,
-		}, nil
+	if nxResult != nil {
+		return nxResult, nil
 	}
 
 	return &model.ResolveResult{

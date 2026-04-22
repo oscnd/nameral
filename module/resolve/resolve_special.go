@@ -25,3 +25,21 @@ func (r *Resolve) BuildSoa(fqdn string) *model.HandleResponse {
 		},
 	}
 }
+
+func (r *Resolve) NxDomainResponse(zone string) *model.HandleResponse {
+	resp := &model.HandleResponse{Rcode: &model.RcodeNXDOMAIN}
+	if r.DefaultSoa == nil {
+		return resp
+	}
+	ttl := 300
+	zoneName := strings.TrimSuffix(zone, ".")
+	resp.Ttl = &ttl
+	resp.Records = []*model.Record{
+		{
+			Name:  &zoneName,
+			Type:  value.Ptr("SOA"),
+			Value: r.DefaultSoa,
+		},
+	}
+	return resp
+}
