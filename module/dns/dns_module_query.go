@@ -7,16 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/miekg/dns"
 	"go.scnd.dev/open/nameral/generate/proto"
 	"go.scnd.dev/open/nameral/type/model"
-	"go.scnd.dev/open/polygon/utility/value"
 )
 
 func (r *Module) Query(ctx context.Context, name string, qtype string) (*model.ResolveResult, error) {
-	// * generate request salt
-	requestSalt := *value.Random(value.RandomMixedCaseAlphaNum, 8)
-
 	// * collect matching zones
 	r.mutex.RLock()
 	var matchingZones []string
@@ -62,8 +57,6 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*model.R
 			ch := make(chan *proto.ResolveResult, 1)
 			r.pending.Store(no, ch)
 			defer r.pending.Delete(no)
-
-			println("salt", requestSalt, "query", no, "zone", zone, "subdomain", dns.Fqdn(subdomain), "type", qtype)
 
 			query := &proto.ResolveQuery{
 				No:        no,

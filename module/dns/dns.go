@@ -15,6 +15,7 @@ import (
 	"go.scnd.dev/open/nameral/common/config"
 	"go.scnd.dev/open/nameral/type/model"
 	"go.scnd.dev/open/polygon"
+	"go.scnd.dev/open/polygon/utility/form"
 	"go.uber.org/fx"
 )
 
@@ -68,6 +69,9 @@ func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, se
 		name := strings.ToLower(strings.TrimSuffix(q.Name, "."))
 		qtype := dns.TypeToString[q.Qtype]
 		ctx := context.Background()
+
+		requestSalt := *form.Random(form.RandomMixedCaseAlphaNum, 8)
+		println("salt", requestSalt, "for", name, qtype, "from", w.RemoteAddr().String())
 
 		do := r.IsEdns0() != nil && r.IsEdns0().Do()
 		zk := m.DnssecMatchZone(name)

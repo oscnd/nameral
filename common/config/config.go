@@ -9,7 +9,7 @@ type Config struct {
 	WebListen             []*string `yaml:"webListen" validate:"required"`
 	ProtoListen           []*string `yaml:"protoListen" validate:"required"`
 	DnsListen             *string   `yaml:"dnsListen" validate:"required"`
-	TelemetryUrl          *string   `yaml:"telemetryUrl" validate:"required"`
+	TelemetryUrl          *string   `yaml:"telemetryUrl" validate:"omitempty"`
 	TelemetryOrganization *string   `yaml:"telemetryOrganization" validate:"omitempty"`
 	RedisAddress          *string   `yaml:"redisAddress" validate:"required"`
 	RedisPassword         *string   `yaml:"redisPassword" validate:"omitempty"`
