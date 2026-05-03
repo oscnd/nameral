@@ -2,6 +2,7 @@ package dns
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/miekg/dns"
@@ -35,9 +36,13 @@ func buildResponse(r *dns.Msg, result *model.ResolveResult) *dns.Msg {
 			rrStr := fmt.Sprintf("%s %d IN %s %s", dns.Fqdn(*rec.Name), ttl, *rec.Type, *rec.Value)
 			parsed, err := dns.NewRR(rrStr)
 			if err == nil {
-				if len(m.Question) > 0 && m.Question[0].Qtype != dns.TypeSOA && parsed.Header().Rrtype == dns.TypeSOA {
-					m.Ns = append(m.Ns, parsed)
-					continue
+				if parsed.Header().Rrtype == dns.TypeSOA {
+					soaQuery := len(m.Question) > 0 && m.Question[0].Qtype == dns.TypeSOA
+					nameMatches := len(m.Question) > 0 && strings.EqualFold(parsed.Header().Name, m.Question[0].Name)
+					if !soaQuery || !nameMatches {
+						m.Ns = append(m.Ns, parsed)
+						continue
+					}
 				}
 				m.Answer = append(m.Answer, parsed)
 			}
