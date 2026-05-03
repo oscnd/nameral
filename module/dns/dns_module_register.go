@@ -1,6 +1,10 @@
 package dns
 
-import "strings"
+import (
+	"strings"
+
+	"go.scnd.dev/open/polygon/utility/value"
+)
 
 func (r *Module) Register(cs *ClientStream, zones []string) {
 	r.mutex.Lock()
@@ -28,11 +32,8 @@ func (r *Module) Unregister(cs *ClientStream, zones []string) {
 		if z == nil {
 			continue
 		}
-		for i, c := range z.clients {
-			if c == cs {
-				z.clients = append(z.clients[:i], z.clients[i+1:]...)
-				break
-			}
+		if i := value.Index(z.clients, cs); i >= 0 {
+			z.clients = value.RemoveIndex(z.clients, i)
 		}
 	}
 }

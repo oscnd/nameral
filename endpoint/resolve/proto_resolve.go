@@ -63,15 +63,10 @@ func (r *ProtoHandler) Resolve(server grpc.BidiStreamingServer[proto.ResolveResu
 
 	// Read loop: dispatch incoming results to pending waiters
 	for {
-		select {
-		case <-r.Dns.StopCh():
+		result, err := server.Recv()
+		if err != nil {
 			return nil
-		default:
-			result, err := server.Recv()
-			if err != nil {
-				return nil
-			}
-			cs.Deliver(result.No, result)
 		}
+		cs.Deliver(result.No, result)
 	}
 }

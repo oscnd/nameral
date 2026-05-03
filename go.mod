@@ -4,12 +4,12 @@ go 1.25.3
 
 require (
 	github.com/bsthun/gut v1.2.8
-	github.com/davecgh/go-spew v1.1.1
 	github.com/gofiber/fiber/v3 v3.0.0-rc.3
 	github.com/miekg/dns v1.1.63
 	github.com/redis/go-redis/v9 v9.18.0
 	go.scnd.dev/open/polygon v0.0.0-00010101000000-000000000000
 	go.uber.org/fx v1.24.0
+	golang.org/x/sync v0.20.0
 	google.golang.org/grpc v1.77.0
 	google.golang.org/protobuf v1.36.11
 )
@@ -81,7 +81,6 @@ require (
 	golang.org/x/crypto v0.46.0 // indirect
 	golang.org/x/mod v0.30.0 // indirect
 	golang.org/x/net v0.48.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
 	golang.org/x/tools v0.39.0 // indirect

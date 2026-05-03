@@ -12,6 +12,9 @@ import (
 )
 
 func (r *Module) Query(ctx context.Context, name string, qtype string) (*model.ResolveResult, error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+
 	// * collect matching zones
 	r.mutex.RLock()
 	var matchingZones []string
@@ -35,8 +38,11 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*model.R
 	resolved := make(map[*ClientStream]struct{})
 
 	for _, zone := range matchingZones {
+		var clients []*ClientStream
 		r.mutex.RLock()
-		clients := r.registry[zone].clients
+		if z := r.registry[zone]; z != nil {
+			clients = z.clients
+		}
 		r.mutex.RUnlock()
 
 		for _, client := range clients {
@@ -44,46 +50,21 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*model.R
 				continue
 			}
 
-			subdomain := name
-			if zone != "." {
-				if name == zone {
-					subdomain = ""
-				} else {
-					subdomain = strings.TrimSuffix(name, "."+zone)
-				}
-			}
-
-			no := r.no.Add(1)
-			ch := make(chan *proto.ResolveResult, 1)
-			r.pending.Store(no, ch)
-			defer r.pending.Delete(no)
-
-			query := &proto.ResolveQuery{
-				No:        no,
-				Type:      qtype,
-				Zone:      zone,
-				Subdomain: subdomain,
-			}
-
-			client.Mutex.Lock()
-			err := client.Stream.Send(query)
-			client.Mutex.Unlock()
+			res, err := r.QueryZone(ctx, client, qtype, zone, name)
 			if err != nil {
+				return nil, err
+			}
+			if res == nil {
 				continue
 			}
 
-			select {
-			case res := <-ch:
-				if res.Rcode == string(model.RcodeNOERROR) {
-					return MapperResolveResult(res), nil
-				}
-				if res.Rcode == string(model.RcodeNXDOMAIN) && nxResult == nil {
-					nxResult = MapperResolveResult(res)
-				}
-				resolved[client] = struct{}{}
-			case <-ctx.Done():
-				return nil, fmt.Errorf("context cancelled")
+			if res.Rcode == string(model.RcodeNOERROR) {
+				return MapperResolveResult(res), nil
 			}
+			if res.Rcode == string(model.RcodeNXDOMAIN) && nxResult == nil {
+				nxResult = MapperResolveResult(res)
+			}
+			resolved[client] = struct{}{}
 		}
 	}
 
@@ -91,13 +72,44 @@ func (r *Module) Query(ctx context.Context, name string, qtype string) (*model.R
 		return nxResult, nil
 	}
 
-	return &model.ResolveResult{
-		No:         nil,
-		Rcode:      &model.RcodeSERVFAIL,
-		ResolvedAt: nil,
-		ExpiredAt:  nil,
-		Records:    nil,
-	}, nil
+	return &model.ResolveResult{Rcode: &model.RcodeSERVFAIL}, nil
+}
+
+func (r *Module) QueryZone(ctx context.Context, client *ClientStream, qtype, zone, name string) (*proto.ResolveResult, error) {
+	// * extract subdomain
+	subdomain := name
+	if zone != "." {
+		if name == zone {
+			subdomain = ""
+		} else {
+			subdomain = strings.TrimSuffix(name, "."+zone)
+		}
+	}
+
+	// * prepare channel and send query
+	no := r.no.Add(1)
+	ch := make(chan *proto.ResolveResult, 1)
+	r.pending.Store(no, ch)
+	defer r.pending.Delete(no)
+
+	client.Mutex.Lock()
+	err := client.Stream.Send(&proto.ResolveQuery{
+		No:        no,
+		Type:      qtype,
+		Zone:      zone,
+		Subdomain: subdomain,
+	})
+	client.Mutex.Unlock()
+	if err != nil {
+		return nil, nil
+	}
+
+	select {
+	case res := <-ch:
+		return res, nil
+	case <-ctx.Done():
+		return nil, fmt.Errorf("context cancelled")
+	}
 }
 
 func MapperResolveResult(res *proto.ResolveResult) *model.ResolveResult {
