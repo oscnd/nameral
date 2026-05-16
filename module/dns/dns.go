@@ -11,18 +11,17 @@ import (
 
 	"github.com/bsthun/gut"
 	"github.com/miekg/dns"
-	"github.com/redis/go-redis/v9"
 	"go.scnd.dev/open/nameral/common/config"
 	"go.scnd.dev/open/nameral/type/model"
-	"go.scnd.dev/open/polygon"
-	"go.scnd.dev/open/polygon/utility/form"
+	"go.scnn.net/base/scaff"
+	"go.scnn.net/base/scaff/utility/form"
 	"go.uber.org/fx"
 	"golang.org/x/sync/singleflight"
 )
 
-func New(lifecycle fx.Lifecycle, polygon polygon.Polygon, cfg *config.Config, server *dns.Server, redis *redis.Client) *Module {
+func New(lifecycle fx.Lifecycle, scf scaff.Scaff, cfg *config.Config, server *dns.Server, redis *redis.Client) *Module {
 	m := &Module{
-		layer:    polygon.Layer("dns", "module"),
+		layer:    scf.Layer("dns", "module"),
 		mutex:    new(sync.RWMutex),
 		no:       new(atomic.Uint64),
 		pending:  new(sync.Map),

@@ -16,6 +16,7 @@ type Resolve struct {
 	UpstreamFrom    *string
 	UpstreamTo      *string
 	DefaultSoa      *string
+	AllowedRecords  []*string
 }
 
 func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
@@ -154,6 +155,19 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 			rrName := strings.TrimSuffix(hdr.Name, ".")
 			rrType := dns.TypeToString[hdr.Rrtype]
 			ttl := int(hdr.Ttl)
+
+			if r.AllowedRecords != nil {
+				allowed := false
+				for _, ar := range r.AllowedRecords {
+					if *ar == rrType {
+						allowed = true
+						break
+					}
+				}
+				if !allowed {
+					continue
+				}
+			}
 
 			full := rr.String()
 			parts := strings.Fields(full)

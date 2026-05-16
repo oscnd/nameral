@@ -14,7 +14,7 @@ import (
 	recordEndpoint "go.scnd.dev/open/nameral/command/agent/handler/record"
 	"go.scnd.dev/open/nameral/module/resolve"
 	"go.scnd.dev/open/nameral/module/store"
-	"go.scnd.dev/open/polygon/compat/common"
+	"go.scnn.net/base/scaff/compat/common"
 	"go.uber.org/fx"
 )
 
@@ -24,11 +24,11 @@ func main() {
 		fx.Provide(
 			fx.Annotate(
 				common.Config[Config],
-				fx.As(new(common.PolygonConfig)),
+				fx.As(new(common.ScaffConfig)),
 				fx.As(new(handler.Config)),
 			),
 			common.Config[Config],
-			common.Polygon,
+			common.Scaff,
 			provideRecordStore,
 			provideFiber,
 			recordEndpoint.Handle,
@@ -108,10 +108,12 @@ func invoke(lc fx.Lifecycle, config *Config, store *store.Store) error {
 	var upstreamAddress *string
 	var upstreamFrom *string
 	var upstreamTo *string
+	var allowedRecords []*string
 	if config.Upstream != nil {
 		upstreamAddress = config.Upstream.Address
 		upstreamFrom = config.Upstream.From
 		upstreamTo = config.Upstream.To
+		allowedRecords = config.Upstream.AllowedRecords
 	}
 
 	lookup := &resolve.Resolve{
@@ -121,6 +123,7 @@ func invoke(lc fx.Lifecycle, config *Config, store *store.Store) error {
 		UpstreamFrom:    upstreamFrom,
 		UpstreamTo:      upstreamTo,
 		DefaultSoa:      config.DefaultSoa,
+		AllowedRecords:  allowedRecords,
 	}
 
 	for _, zone := range config.Zones {

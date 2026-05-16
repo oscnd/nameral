@@ -1,14 +1,13 @@
 package endpoint
 
 import (
-	"github.com/gofiber/fiber/v3"
 	"go.scnd.dev/open/nameral/common/config"
 	resolveHandler "go.scnd.dev/open/nameral/endpoint/resolve"
-	"go.scnd.dev/open/polygon"
+	"go.scnn.net/base/scaff"
 )
 
 func Bind(
-	polygon polygon.Polygon,
+	scf scaff.Scaff,
 	config *config.Config,
 	app *fiber.App,
 	handler *resolveHandler.Handler,

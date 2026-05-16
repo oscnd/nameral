@@ -3,7 +3,7 @@ package dns
 import (
 	"strings"
 
-	"go.scnd.dev/open/polygon/utility/value"
+	"go.scnn.net/base/scaff/utility/value"
 )
 
 func (r *Module) Register(cs *ClientStream, zones []string) {

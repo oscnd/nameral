@@ -1,7 +1,7 @@
 package config
 
 import (
-	"go.scnd.dev/open/polygon"
+	"go.scnn.net/base/scaff"
 )
 
 type Config struct {
@@ -47,8 +47,8 @@ func (r *Config) GetProtoListen() []*string {
 	return r.ProtoListen
 }
 
-func (r *Config) GetPolygonConfig() *polygon.Config {
-	return &polygon.Config{
+func (r *Config) GetScaffConfig() *scaff.Config {
+	return &scaff.Config{
 		AppName:               r.AppName,
 		AppVersion:            nil,
 		AppNamespace:          nil,

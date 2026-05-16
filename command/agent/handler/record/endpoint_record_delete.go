@@ -3,7 +3,7 @@ package recordEndpoint
 import (
 	"github.com/gofiber/fiber/v3"
 	"go.scnd.dev/open/nameral/type/payload"
-	"go.scnd.dev/open/polygon/compat/response"
+	"go.scnn.net/base/scaff/compat/response"
 )
 
 func (r *Handler) HandleDelete(c fiber.Ctx) error {

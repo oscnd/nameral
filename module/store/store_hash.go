@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 
-	"go.scnd.dev/open/polygon/utility/conv"
+	"go.scnn.net/base/scaff/utility/conv"
 )
 
 func HashRecord(name, typ, value string) string {

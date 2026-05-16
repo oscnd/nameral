@@ -1,16 +1,15 @@
 package resolveEndpoint
 
 import (
-	"github.com/redis/go-redis/v9"
 	"go.scnd.dev/open/nameral/common/config"
 	"go.scnd.dev/open/nameral/generate/proto"
 	"go.scnd.dev/open/nameral/module/dns"
-	"go.scnd.dev/open/polygon"
+	"go.scnn.net/base/scaff"
 	"google.golang.org/grpc"
 )
 
 type Handler struct {
-	Layer  polygon.Layer
+	Layer  scaff.Layer
 	Config *config.Config
 	Redis  *redis.Client
 	Dns    *dns.Module
@@ -22,14 +21,14 @@ type ProtoHandler struct {
 }
 
 func Handle(
-	polygon polygon.Polygon,
+	scf scaff.Scaff,
 	registrar *grpc.Server,
 	config *config.Config,
 	rdb *redis.Client,
 	module *dns.Module,
 ) *Handler {
 	h := &Handler{
-		Layer:  polygon.Layer("state", "endpoint"),
+		Layer:  scf.Layer("state", "endpoint"),
 		Config: config,
 		Redis:  rdb,
 		Dns:    module,

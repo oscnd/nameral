@@ -4,13 +4,12 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/redis/go-redis/v9"
-	"go.scnd.dev/open/polygon"
+	"go.scnn.net/base/scaff"
 	"golang.org/x/sync/singleflight"
 )
 
 type Module struct {
-	layer    polygon.Layer
+	layer    scaff.Layer
 	mutex    *sync.RWMutex
 	no       *atomic.Uint64
 	pending  *sync.Map           // uint64 → chan *proto.ResolveResult

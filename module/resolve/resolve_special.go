@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"go.scnd.dev/open/nameral/type/model"
-	"go.scnd.dev/open/polygon/utility/value"
+	"go.scnn.net/base/scaff/utility/value"
 )
 
 func (r *Resolve) BuildSoa(zone *string) *model.HandleResponse {

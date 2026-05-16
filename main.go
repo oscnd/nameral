@@ -7,7 +7,7 @@ import (
 	"go.scnd.dev/open/nameral/endpoint"
 	resolveEndpoint "go.scnd.dev/open/nameral/endpoint/resolve"
 	dnsModule "go.scnd.dev/open/nameral/module/dns"
-	"go.scnd.dev/open/polygon/compat/common"
+	"go.scnn.net/base/scaff/compat/common"
 	"go.uber.org/fx"
 )
 
@@ -18,12 +18,12 @@ func main() {
 				common.Config[config.Config],
 				fx.As(new(common.FiberConfig)),
 				fx.As(new(common.RedisConfig)),
-				fx.As(new(common.PolygonConfig)),
+				fx.As(new(common.ScaffConfig)),
 			),
 			common.Config[config.Config],
 			common.Fiber,
 			common.Redis,
-			common.Polygon,
+			common.Scaff,
 			grpc.Init,
 			dns.Init,
 			dnsModule.New,
