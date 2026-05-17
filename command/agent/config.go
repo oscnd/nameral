@@ -29,7 +29,7 @@ func (r *Config) GetRecordKey() *string {
 	return r.RecordKey
 }
 
-func (r *Config) GetPolygonConfig() *scaff.Config {
+func (r *Config) GetScaffConfig() *scaff.Config {
 	return &scaff.Config{
 		AppName:               r.AppName,
 		AppVersion:            nil,

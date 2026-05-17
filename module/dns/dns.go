@@ -11,6 +11,7 @@ import (
 
 	"github.com/bsthun/gut"
 	"github.com/miekg/dns"
+	"github.com/redis/go-redis/v9"
 	"go.scnd.dev/open/nameral/common/config"
 	"go.scnd.dev/open/nameral/type/model"
 	"go.scnn.net/base/scaff"

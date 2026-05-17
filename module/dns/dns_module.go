@@ -4,6 +4,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/redis/go-redis/v9"
 	"go.scnn.net/base/scaff"
 	"golang.org/x/sync/singleflight"
 )

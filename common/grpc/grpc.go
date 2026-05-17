@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/tls"
 	"net"
+	"time"
 
 	"github.com/bsthun/gut"
 	"go.scnd.dev/open/nameral/common/config"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 )
 
 func Init(lc fx.Lifecycle, config *config.Config) *grpc.Server {
@@ -29,6 +31,14 @@ func Init(lc fx.Lifecycle, config *config.Config) *grpc.Server {
 		grpc.Creds(credentials.NewTLS(tlsConfig)),
 		grpc.UnaryInterceptor(interceptor.AuthorizationUnaryInterceptor),
 		grpc.StreamInterceptor(interceptor.AuthorizationStreamInterceptor),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:    2 * time.Second, // ping client when inactivity
+			Timeout: 1 * time.Second, // close connection if no response to ping
+		}),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             2 * time.Second,
+			PermitWithoutStream: true,
+		}),
 	)
 
 	// * Append lifecycle hook
@@ -46,7 +56,16 @@ func Init(lc fx.Lifecycle, config *config.Config) *grpc.Server {
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			grpcServer.GracefulStop()
+			stopped := make(chan struct{})
+			go func() {
+				grpcServer.GracefulStop()
+				close(stopped)
+			}()
+			select {
+			case <-stopped:
+			case <-ctx.Done():
+				grpcServer.Stop()
+			}
 			return nil
 		},
 	})

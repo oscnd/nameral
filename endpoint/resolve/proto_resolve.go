@@ -61,12 +61,26 @@ func (r *ProtoHandler) Resolve(server grpc.BidiStreamingServer[proto.ResolveResu
 	r.Dns.Register(cs, finalZones)
 	defer r.Dns.Unregister(cs, finalZones)
 
-	// Read loop: dispatch incoming results to pending waiters
+	// dispatch incoming results to pending waiters
 	for {
-		result, err := server.Recv()
-		if err != nil {
+		resultCh := make(chan *proto.ResolveResult, 1)
+		errCh := make(chan error, 1)
+		go func() {
+			result, err := server.Recv()
+			if err != nil {
+				errCh <- err
+			} else {
+				resultCh <- result
+			}
+		}()
+
+		select {
+		case <-r.ShutdownCtx.Done():
 			return nil
+		case <-errCh:
+			return nil
+		case result := <-resultCh:
+			cs.Deliver(result.No, result)
 		}
-		cs.Deliver(result.No, result)
 	}
 }
