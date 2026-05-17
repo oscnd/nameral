@@ -61,7 +61,6 @@ func (r *Namera) stream(ctx context.Context, conn *grpc.ClientConn) {
 			case <-ctx.Done():
 				return
 			case <-time.After(2 * time.Second):
-				conn.Close()
 				if r.config.OnReconnect != nil {
 					r.config.OnReconnect(conn.Target())
 				}
