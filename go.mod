@@ -2,6 +2,8 @@ module go.scnd.dev/open/nameral
 
 go 1.25.7
 
+replace go.scnn.net/base/scaff => /opt/symbol/scaff
+
 require (
 	github.com/bsthun/gut v1.2.8
 	github.com/gofiber/fiber/v3 v3.2.0

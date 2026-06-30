@@ -150,9 +150,13 @@ func (r *Resolve) Handle(q *model.HandleQuery) (*model.HandleResponse, error) {
 			Records: nil,
 		}
 
+		originalName := strings.TrimSuffix(fqdn, ".")
 		for _, rr := range msg.Answer {
 			hdr := rr.Header()
 			rrName := strings.TrimSuffix(hdr.Name, ".")
+			if strings.EqualFold(hdr.Name, upstreamFqdn) {
+				rrName = originalName
+			}
 			rrType := dns.TypeToString[hdr.Rrtype]
 			ttl := int(hdr.Ttl)
 

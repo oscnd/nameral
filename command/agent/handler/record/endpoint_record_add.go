@@ -3,7 +3,7 @@ package recordEndpoint
 import (
 	"github.com/gofiber/fiber/v3"
 	"go.scnd.dev/open/nameral/type/payload"
-	"go.scnn.net/base/scaff/compat/response"
+	"go.scnn.net/base/scaff/shared/response"
 )
 
 func (r *Handler) HandleAdd(c fiber.Ctx) error {

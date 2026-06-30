@@ -14,7 +14,7 @@ import (
 	recordEndpoint "go.scnd.dev/open/nameral/command/agent/handler/record"
 	"go.scnd.dev/open/nameral/module/resolve"
 	"go.scnd.dev/open/nameral/module/store"
-	"go.scnn.net/base/scaff/compat/common"
+	"go.scnn.net/base/scaff/shared/common"
 	"go.uber.org/fx"
 )
 
